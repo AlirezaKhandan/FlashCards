@@ -610,7 +610,7 @@ components:
         cards:
           type: "array"
           items:
-            $ref: "#/components/schemas/FlashCard"
+            $ref: "#/components/schemas/FlashCard" #its a flashcard
         created_at:
           type: "string"
           format: "date-time"
