@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <title>TestVar | Flashcard</title>
+</head>
+<body>
+    <nav class="py-6 px-6 flex justify-between items-center border-b border-gray-400">
+        <a href="/" class="text-xl font-semibold">TestVar Flashcards</a>
+
+        <div class="space-x-6">
+            <a href="#" class="text-lg font-medium hover:text-blue-400">New set</a>
+            <a href="#" class="text-lg font-medium hover:text-blue-400">Browse</a>
+
+            <a href="#" class="px-5 py-2 text-lg font-thin bg-blue-500 text-white rounded-xl hover:bg-blue-700">Sign up</a>
+            <a href="#" class="px-5 py-2 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-blue-700">Log in</a>
+        </div>
+    </nav>
+
+    <div class="px-6 py-6">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <footer style="background-color: #2a4edb;" class="py-6 px-6 flex justify-between text-lg font-thin">
+        <div class="w-2/3 pr-10">
+            <h3 class="mb-5 font-medium text-white">
+                About
+            </h3>
+
+            <p class="text-lg text-white"> 
+                What should be in footer?
+            </p>
+            <p class="text-lg text-white">
+                API Version: <span id="api-version">Loading...</span>
+            </p>
+        </div>
+
+        <div class="w-1/3">
+            <h3 class="mb-5 font-medium text-white">
+                Menu
+            </h3>
+
+            <ul class="space-y-2">
+                <li>
+                    <a href="#" class="text-lg text-blue-300 hover:text-blue-800">
+                        About
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="text-lg text-blue-300 hover:text-blue-800">
+                        Contacts
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="text-lg text-blue-300 hover:text-blue-800">
+                        Privacy policy
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="text-lg text-blue-300 hover:text-blue-800">
+                        Terms of use
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </footer>
+
+    <script>
+        // Fetch the API version and display it in the footer
+        fetch('/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('api-version').innerText = data.version;
+            })
+            .catch(error => {
+                console.error('Error fetching API version:', error);
+                document.getElementById('api-version').innerText = "Error fetching version";
+            });
+    </script>
+</body>
+</html>
