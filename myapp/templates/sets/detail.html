@@ -1,0 +1,17 @@
+{% extends "index.html" %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{{ set.name }}</h1>
+<h2 class="text-xl font-semibold mb-4">Flashcards</h2>
+<ul class="space-y-4">
+    {% for card in set.cards.all %}
+    <li class="border p-4 rounded shadow">
+        <strong>Question:</strong> {{ card.question }} <br>
+        <strong>Answer:</strong> {{ card.answer }}
+    </li>
+    {% endfor %}
+</ul>
+<a href="{% url 'flashcard-add' set.id %}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700">
+    Add New Flashcard
+</a>
+{% endblock %}

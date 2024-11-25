@@ -16,8 +16,19 @@
             <a href="#" class="text-lg font-medium hover:text-blue-400">New set</a>
             <a href="#" class="text-lg font-medium hover:text-blue-400">Browse</a>
 
-            <a href="#" class="px-5 py-2 text-lg font-thin bg-blue-500 text-white rounded-xl hover:bg-blue-700">Sign up</a>
-            <a href="#" class="px-5 py-2 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-blue-700">Log in</a>
+            {% if user.is_authenticated %}
+                <span class="text-lg font-medium text-gray-700">Hello, {{ user.username }}</span>
+                <a href="{% url 'logout' %}" class="px-5 py-2 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-gray-800">
+                    Logout
+                </a>
+            {% else %}
+                <a href="{% url 'register' %}" class="px-5 py-2 text-lg font-thin bg-blue-500 text-white rounded-xl hover:bg-blue-700">
+                    Sign Up
+                </a>
+                <a href="{% url 'login' %}" class="px-5 py-2 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-gray-800">
+                    Login
+                </a>
+            {% endif %}
         </div>
     </nav>
 

@@ -1,0 +1,12 @@
+{% extends "index.html" %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Create a New Set</h1>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700">
+        Save
+    </button>
+</form>
+{% endblock %}
