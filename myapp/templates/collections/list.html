@@ -1,0 +1,18 @@
+{% extends "index.html" %}
+
+{% block content %}
+<h2>Your Collections</h2>
+<ul>
+    {% for collection in collections %}
+    <li>
+        <a href="{% url 'flashcard-set-detail' collection.set.pk %}">{{ collection.set.name }}</a>
+        <form action="{% url 'collection-delete' collection.pk %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit">Remove</button>
+        </form>
+    </li>
+    {% empty %}
+    <li>You have no collections yet.</li>
+    {% endfor %}
+</ul>
+{% endblock %}

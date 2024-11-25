@@ -16,7 +16,13 @@ class FlashCardSet(models.Model):
     name = models.CharField(max_length=255)
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="flashcard_sets", null=True)
+    author = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="flashcard_sets",
+        null=True,
+        blank=True
+    )
 
     def __str__(self):
         return f"FlashCardSet: {self.name}"
@@ -32,7 +38,11 @@ class FlashCard(models.Model):
         null=True,
         blank=True,
     )
-    set = models.ForeignKey(FlashCardSet, on_delete=models.CASCADE, related_name="cards")
+    set = models.ForeignKey(
+        FlashCardSet,
+        on_delete=models.CASCADE,
+        related_name="cards"
+    )
 
     def __str__(self):
         return f"FlashCard: {self.question}"
@@ -41,26 +51,55 @@ class FlashCard(models.Model):
 class Collection(models.Model):
     """Model representing a collection of flashcard sets by a user."""
     comment = models.TextField(blank=True, null=True, default="")
-    set = models.ForeignKey(FlashCardSet, on_delete=models.SET_NULL, null=True, related_name="collections")
-    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="collections")
+    set = models.ForeignKey(
+        FlashCardSet,
+        on_delete=models.SET_NULL,
+        related_name="collections",
+        null=True,
+        blank=True
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="collections",
+        null=True,
+        blank=True
+    )
 
     def __str__(self):
-        return f"Collection by {self.author} on {self.set}"
+        author_name = self.author.username if self.author else "Unknown Author"
+        set_name = self.set.name if self.set else "Unknown Set"
+        return f"Collection by {author_name} on {set_name}"
 
 
 class Comment(models.Model):
     """Model representing comments on a flashcard set."""
     comment = models.TextField()
-    flashcard_set = models.ForeignKey(FlashCardSet, on_delete=models.CASCADE, related_name="comments")
-    author = models.ForeignKey(User, on_delete=models.CASCADE, null=True, related_name="comments")
+    flashcard_set = models.ForeignKey(
+        FlashCardSet,
+        on_delete=models.CASCADE,
+        related_name="comments"
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="comments",
+        null=True,
+        blank=True
+    )
 
     def __str__(self):
-        return f"Comment by {self.author}: {self.comment[:50]}..."
+        author_name = self.author.username if self.author else "Unknown Author"
+        return f"Comment by {author_name}: {self.comment[:50]}..."
 
 
 class DailyLimit(models.Model):
     """Model to track daily creation limits for flashcard sets and flashcards."""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="daily_limit")
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="daily_limit"
+    )
     sets_created_today = models.PositiveIntegerField(default=0)
     flashcards_created_today = models.PositiveIntegerField(default=0)
     last_reset_date = models.DateField(auto_now_add=True)
@@ -71,7 +110,14 @@ class DailyLimit(models.Model):
             self.sets_created_today = 0
             self.flashcards_created_today = 0
             self.last_reset_date = now().date()
-            self.save(update_fields=["sets_created_today", "flashcards_created_today", "last_reset_date"])
+            self.save(update_fields=[
+                "sets_created_today",
+                "flashcards_created_today",
+                "last_reset_date"
+            ])
+
+    def __str__(self):
+        return f"DailyLimit for {self.user.username}"
 
 
 # Signal to initialize DailyLimit when a new user is created

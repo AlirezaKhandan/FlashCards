@@ -1,0 +1,8 @@
+{% extends "index.html" %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white p-6 rounded-md shadow-md text-center">
+    <h2 class="text-2xl font-bold mb-6">Registration Successful</h2>
+    <p>Your account has been created successfully.</p>
+    <p>Please <a href="{% url 'login' %}" class="text-blue-500 hover:underline">login</a> to continue.</p>
+</div>
+{% endblock %}

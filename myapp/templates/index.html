@@ -4,23 +4,40 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <title>TestVar | Flashcard</title>
+    <title>TestVar | Flashcards</title>
 </head>
 <body>
+    <!-- Navigation Bar -->
     <nav class="py-6 px-6 flex justify-between items-center border-b border-gray-400">
-        <a href="/" class="text-xl font-semibold">TestVar Flashcards</a>
+        <div class="flex items-center space-x-6">
+            <!-- Logo -->
+            <a href="{% url 'home' %}" class="text-xl font-semibold">TestVar Flashcards</a>
 
+            <!-- Navigation Links -->
+            {% if user.is_authenticated %}
+                <a href="{% url 'flashcard-set-add' %}" class="text-lg font-medium hover:text-blue-400">New Set</a>
+                <a href="{% url 'flashcard-set-list' %}" class="text-lg font-medium hover:text-blue-400">My Sets</a>
+                <a href="{% url 'collection-list' %}" class="text-lg font-medium hover:text-blue-400">My Collections</a>
+            {% endif %}
+            <a href="{% url 'browse-sets' %}" class="text-lg font-medium hover:text-blue-400">Browse</a>
+        </div>
+
+        <!-- Search Form -->
+        <form action="{% url 'search' %}" method="get" class="flex items-center">
+            <input type="text" name="q" placeholder="Search..." required class="px-2 py-1 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button type="submit" class="ml-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-700">Search</button>
+        </form>
+
+        <!-- User Authentication Links -->
         <div class="space-x-6">
-            <a href="#" class="text-lg font-medium hover:text-blue-400">New set</a>
-            <a href="#" class="text-lg font-medium hover:text-blue-400">Browse</a>
-
             {% if user.is_authenticated %}
                 <span class="text-lg font-medium text-gray-700">Hello, {{ user.username }}</span>
-                <a href="{% url 'logout' %}" class="px-5 py-2 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-gray-800">
+                <a href="{% url 'logout' %}?next={% url 'home' %}" class="px-5 py-2 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-gray-800">
                     Logout
-                </a>
+                </a>                
             {% else %}
                 <a href="{% url 'register' %}" class="px-5 py-2 text-lg font-thin bg-blue-500 text-white rounded-xl hover:bg-blue-700">
                     Sign Up
@@ -32,11 +49,13 @@
         </div>
     </nav>
 
+    <!-- Content Block -->
     <div class="px-6 py-6">
         {% block content %}
         {% endblock %}
     </div>
 
+    <!-- Footer -->
     <footer style="background-color: #2a4edb;" class="py-6 px-6 flex justify-between text-lg font-thin">
         <div class="w-2/3 pr-10">
             <h3 class="mb-5 font-medium text-white">
@@ -44,7 +63,7 @@
             </h3>
 
             <p class="text-lg text-white"> 
-                What should be in footer?
+                TestVar Flashcards is a platform that allows you to create, share, and study flashcards easily.
             </p>
             <p class="text-lg text-white">
                 API Version: <span id="api-version">Loading...</span>
@@ -64,26 +83,27 @@
                 </li>
                 <li>
                     <a href="#" class="text-lg text-blue-300 hover:text-blue-800">
-                        Contacts
+                        Contact
                     </a>
                 </li>
                 <li>
                     <a href="#" class="text-lg text-blue-300 hover:text-blue-800">
-                        Privacy policy
+                        Privacy Policy
                     </a>
                 </li>
                 <li>
                     <a href="#" class="text-lg text-blue-300 hover:text-blue-800">
-                        Terms of use
+                        Terms of Use
                     </a>
                 </li>
             </ul>
         </div>
     </footer>
 
+    <!-- JavaScript -->
     <script>
         // Fetch the API version and display it in the footer
-        fetch('/')
+        fetch('{% url "api-version" %}')
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Network response was not ok');

@@ -1,14 +1,36 @@
-{% extends 'index.html' %}
-
+{% extends "index.html" %}
 {% block content %}
-<div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
-    <h2 class="text-xl font-bold mb-4">Register</h2>
-    <form method="post">
+<div class="max-w-md mx-auto bg-white p-6 rounded-md shadow-md">
+    <h2 class="text-2xl font-bold mb-6 text-center">Register</h2>
+    {% if form.errors %}
+        <div class="bg-red-100 text-red-700 p-4 rounded mb-4">
+            <ul>
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+    <form method="post" class="space-y-4">
         {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-700">
+        {{ form.username.label_tag }}<br>
+        {{ form.username }}
+        {{ form.password1.label_tag }}<br>
+        {{ form.password1 }}
+        {{ form.password2.label_tag }}<br>
+        {{ form.password2 }}
+        <button type="submit" class="w-full mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
             Register
         </button>
     </form>
+    <p class="mt-4 text-center">
+        Already have an account?
+        <a href="{% url 'login' %}" class="text-blue-500 hover:underline">Login here</a>.
+    </p>
 </div>
 {% endblock %}

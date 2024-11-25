@@ -1,17 +1,84 @@
 {% extends "index.html" %}
-
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">{{ set.name }}</h1>
-<h2 class="text-xl font-semibold mb-4">Flashcards</h2>
-<ul class="space-y-4">
-    {% for card in set.cards.all %}
-    <li class="border p-4 rounded shadow">
-        <strong>Question:</strong> {{ card.question }} <br>
-        <strong>Answer:</strong> {{ card.answer }}
-    </li>
-    {% endfor %}
-</ul>
-<a href="{% url 'flashcard-add' set.id %}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700">
-    Add New Flashcard
-</a>
+
+<!-- Flashcard Container -->
+<div id="flashcard-container" class="my-4 p-6 border rounded-lg shadow-md">
+    <!-- Flashcard content will be injected here by JavaScript -->
+</div>
+
+<!-- Navigation Buttons -->
+<div class="flex justify-between mt-4">
+    <button id="prev-button" class="bg-gray-300 px-4 py-2 rounded">Previous</button>
+    <button id="show-answer-button" class="bg-blue-500 text-white px-4 py-2 rounded">Show Answer</button>
+    <button id="next-button" class="bg-gray-300 px-4 py-2 rounded">Next</button>
+</div>
+
+<!-- Include JavaScript Data -->
+{{ flashcards|json_script:"flashcards-data" }}
+
+<script>
+    // Parse the flashcards data safely
+    const flashcards = JSON.parse(document.getElementById('flashcards-data').textContent);
+    let currentIndex = 0;
+    let showingAnswer = false;
+
+    function renderFlashcard() {
+        const container = document.getElementById('flashcard-container');
+        if (flashcards.length === 0) {
+            container.innerHTML = `
+                <p>No flashcards in this set.</p>
+                <p>
+                    <a href="{% url 'flashcard-add' set.id %}" class="text-blue-600 hover:underline">
+                        Add a flashcard
+                    </a>.
+                </p>
+            `;
+            // Hide navigation buttons when there are no flashcards
+            document.getElementById('prev-button').style.display = 'none';
+            document.getElementById('show-answer-button').style.display = 'none';
+            document.getElementById('next-button').style.display = 'none';
+            return;
+        }
+
+        const flashcard = flashcards[currentIndex];
+        container.innerHTML = `
+            <h3 class="text-xl font-semibold mb-2">${showingAnswer ? 'Answer' : 'Question'}</h3>
+            <p class="text-lg mb-4">${showingAnswer ? flashcard.answer : flashcard.question}</p>
+            {% if user == set.author %}
+                <div class="flex space-x-4">
+                    <a href="{% url 'flashcard-edit' 0 %}".replace('0', flashcard.id) class="text-blue-500 hover:underline">
+                        Edit
+                    </a>
+                    <form action="{% url 'flashcard-delete' 0 %}".replace('0', flashcard.id) method="post" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="text-red-500 hover:underline">Delete</button>
+                    </form>
+                </div>
+            {% endif %}
+        `;
+    }
+
+    // Event listeners for navigation buttons
+    document.getElementById('prev-button').addEventListener('click', () => {
+        currentIndex = (currentIndex - 1 + flashcards.length) % flashcards.length;
+        showingAnswer = false;
+        renderFlashcard();
+    });
+
+    document.getElementById('next-button').addEventListener('click', () => {
+        currentIndex = (currentIndex + 1) % flashcards.length;
+        showingAnswer = false;
+        renderFlashcard();
+    });
+
+    document.getElementById('show-answer-button').addEventListener('click', () => {
+        showingAnswer = !showingAnswer;
+        renderFlashcard();
+    });
+
+    // Initial render
+    renderFlashcard();
+</script>
+
 {% endblock %}

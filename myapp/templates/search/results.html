@@ -1,0 +1,25 @@
+{% extends "index.html" %}
+
+{% block content %}
+<h2>Search Results for "{{ query }}"</h2>
+
+<h3>Flashcard Sets</h3>
+<ul>
+    {% for set in flashcard_sets %}
+    <li>
+        <a href="{% url 'flashcard-set-detail' set.pk %}">{{ set.name }}</a> by {{ set.author.username }}
+    </li>
+    {% empty %}
+    <li>No flashcard sets found.</li>
+    {% endfor %}
+</ul>
+
+<h3>Users</h3>
+<ul>
+    {% for user in users %}
+    <li>{{ user.username }}</li>
+    {% empty %}
+    <li>No users found.</li>
+    {% endfor %}
+</ul>
+{% endblock %}
