@@ -103,6 +103,10 @@ class FlashCardSetCreateView(LoginRequiredMixin, CreateView):
 class FlashCardSetDeleteView(LoginRequiredMixin, DeleteView):
     model = FlashCardSet
     success_url = reverse_lazy('flashcard-set-list')
+    
+    def get_queryset(self):
+        # Only allow authors to delete their own sets
+        return FlashCardSet.objects.filter(author=self.request.user)
 
 class FlashCardDeleteView(LoginRequiredMixin, DeleteView):
     """Delete an existing flashcard."""
@@ -375,13 +379,16 @@ class FlashCardListCreateAPIView(generics.ListCreateAPIView):
         user_limit = self.request.user.daily_limit
         user_limit.reset_if_needed()
         if user_limit.flashcards_created_today >= 50 and not self.request.user.is_superuser:
-            return Response(
-                {'error': 'You have reached the daily limit of 50 flashcards.'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS
+            self.permission_denied(
+                self.request,
+                message='You have reached the daily limit of 50 flashcards.',
+                code='too_many_requests'
             )
-        serializer.save(set=flashcard_set)
-        user_limit.flashcards_created_today += 1
-        user_limit.save()
+        else:
+            serializer.save(set=flashcard_set)
+            user_limit.flashcards_created_today += 1
+            user_limit.save()
+
 
 class FlashCardRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = FlashCard.objects.all()

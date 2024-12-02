@@ -25,16 +25,17 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = ['id', 'comment', 'author']
 
 class FlashCardSetSerializer(serializers.ModelSerializer):
-    cards = FlashCardSerializer(many=True, read_only=True, source='cards')  # Nested flashcards
-    comments = CommentSerializer(many=True, read_only=True, source='comments')  # Nested comments
+    cards = FlashCardSerializer(many=True, read_only=True)  # Remove source='cards'
+    comments = CommentSerializer(many=True, read_only=True)  # Remove source='comments'
     author = UserSerializer(read_only=True)
 
     class Meta:
         model = FlashCardSet
         fields = ['id', 'name', 'createdAt', 'updatedAt', 'author', 'cards', 'comments']
 
+
 class CollectionSerializer(serializers.ModelSerializer):
-    set = FlashCardSetSerializer(read_only=True)
+    set = serializers.PrimaryKeyRelatedField(queryset=FlashCardSet.objects.all())
     author = UserSerializer(read_only=True)
 
     class Meta:

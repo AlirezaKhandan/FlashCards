@@ -43,6 +43,8 @@ from .views import (
     UserCollectionRetrieveUpdateDestroyAPIView,
     CollectionListCreateAPIView,
     RandomCollectionRedirectView,
+    registration_success,
+    UserRetrieveUpdateDestroyAPIView,
 )
 
 urlpatterns = [
@@ -56,6 +58,7 @@ urlpatterns = [
     path('login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('register/', register_user, name='register'),
+    path('registration-success/', registration_success, name='registration-success'),
 
     # Web Interface - Flashcard Set Management
     path('sets/', FlashCardSetListView.as_view(), name='flashcard-set-list'),
@@ -99,6 +102,7 @@ urlpatterns = [
 
     # API - Users
     path('api/users/', UserListCreateAPIView.as_view(), name='api-users'),
+    path('api/users/<int:pk>/', UserRetrieveUpdateDestroyAPIView.as_view(), name='api-user-detail'),
     path('api/users/<int:userId>/', UserRetrieveUpdateDestroyAPIView.as_view(), name='api-user-detail'),
     path('api/users/<int:userId>/sets/', UserFlashCardSetListAPIView.as_view(), name='api-user-sets'),
     path('api/users/<int:userId>/collections/', UserCollectionListAPIView.as_view(), name='api-user-collections'),
