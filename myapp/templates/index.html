@@ -35,9 +35,12 @@
         <div class="space-x-6">
             {% if user.is_authenticated %}
                 <span class="text-lg font-medium text-gray-700">Hello, {{ user.username }}</span>
-                <a href="{% url 'logout' %}?next={% url 'home' %}" class="px-5 py-2 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-gray-800">
-                    Logout
-                </a>                
+                <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="px-5 py-2 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-gray-800">
+                        Logout
+                    </button>
+                </form>               
             {% else %}
                 <a href="{% url 'register' %}" class="px-5 py-2 text-lg font-thin bg-blue-500 text-white rounded-xl hover:bg-blue-700">
                     Sign Up
