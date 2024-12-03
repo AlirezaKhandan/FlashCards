@@ -15,10 +15,11 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.exceptions import Throttled
 
 from .models import FlashCardSet, FlashCard, Comment, DailyLimit, Collection, User
 from .serializers import FlashCardSetSerializer, FlashCardSerializer, CommentSerializer, CollectionSerializer, UserSerializer
-from .forms import FlashCardSetForm, FlashCardForm, CustomUserCreationForm
+from .forms import FlashCardSetForm, FlashCardForm, CustomUserCreationForm, CollectionForm
 
 from django.db.models import Q
 from django.contrib.auth import authenticate
@@ -36,7 +37,11 @@ import random
 # Core Views
 def mypage(request):
     """Render the homepage."""
-    return render(request, 'index.html')
+    if request.user.is_authenticated:
+        flashcard_sets = FlashCardSet.objects.filter(author=request.user).order_by('-createdAt')[:6]  # Get the user's recent 6 sets
+    else:
+        flashcard_sets = None
+    return render(request, 'index.html', {'flashcard_sets': flashcard_sets})
 
 
 def register_user(request):
@@ -276,37 +281,68 @@ class CollectionListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return Collection.objects.filter(author=self.request.user)
 
-class CollectionCreateView(LoginRequiredMixin, View):
-    """Add a flashcard set to the user's collection."""
-    def post(self, request, set_id):
-        flashcard_set = get_object_or_404(FlashCardSet, id=set_id)
-        # Avoid duplicate collections
-        Collection.objects.get_or_create(author=request.user, set=flashcard_set)
-        return redirect('collection-list')
+class CollectionCreateView(LoginRequiredMixin, CreateView):
+    model = Collection
+    form_class = CollectionForm
+    template_name = 'collections/create.html'
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('collection-list')
+
 
 class CollectionDeleteView(LoginRequiredMixin, DeleteView):
-    """Remove a flashcard set from the user's collection."""
+    """Delete a collection."""
     model = Collection
     template_name = 'collections/delete.html'
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        delete_sets = request.POST.get('delete_sets') == 'on'
+        if delete_sets:
+            # Delete all sets in the collection
+            self.object.sets.all().delete()
+        return super().post(request, *args, **kwargs)
 
     def get_queryset(self):
         return Collection.objects.filter(author=self.request.user)
 
     def get_success_url(self):
         return reverse_lazy('collection-list')
-    
 
-def search_view(request):
-    """Search for flashcard sets and users."""
-    query = request.GET.get('q', '')
-    flashcard_sets = FlashCardSet.objects.filter(name__icontains=query)
-    users = User.objects.filter(username__icontains=query)
-    context = {
-        'flashcard_sets': flashcard_sets,
-        'users': users,
-        'query': query,
-    }
-    return render(request, 'search/results.html', context)
+
+
+
+class CollectionUpdateView(LoginRequiredMixin, UpdateView):
+    model = Collection
+    form_class = CollectionForm
+    template_name = 'collections/update.html'
+
+    def get_queryset(self):
+        return Collection.objects.filter(author=self.request.user)
+
+    def get_success_url(self):
+        return reverse_lazy('collection-list')
+
+
+class AddSetToCollectionView(LoginRequiredMixin, View):
+    def post(self, request, set_id):
+        collection_id = request.POST.get('collection_id')
+        collection = get_object_or_404(Collection, id=collection_id, author=request.user)
+        flashcard_set = get_object_or_404(FlashCardSet, id=set_id)
+        collection.sets.add(flashcard_set)
+        return redirect('flashcard-set-detail', pk=set_id)
+
+class RemoveSetFromCollectionView(LoginRequiredMixin, View):
+    def post(self, request, set_id):
+        collection_id = request.POST.get('collection_id')
+        collection = get_object_or_404(Collection, id=collection_id, author=request.user)
+        flashcard_set = get_object_or_404(FlashCardSet, id=set_id)
+        collection.sets.remove(flashcard_set)
+        return redirect('flashcard-set-detail', pk=set_id)
 
 
 class BrowseFlashCardSetListView(ListView):
@@ -332,16 +368,14 @@ class FlashCardSetListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):
-        user_limit = self.request.user.daily_limit
+        user_limit, _ = DailyLimit.objects.get_or_create(user=self.request.user)
         user_limit.reset_if_needed()
         if user_limit.sets_created_today >= 5 and not self.request.user.is_superuser:
-            return Response(
-                {'error': 'You have reached the daily limit of 5 flashcard sets.'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS
-            )
-        serializer.save(author=self.request.user)
-        user_limit.sets_created_today += 1
-        user_limit.save()
+            raise Throttled(detail='You have reached the daily limit of 5 flashcard sets.')
+        else:
+            serializer.save(author=self.request.user)
+            user_limit.sets_created_today += 1
+            user_limit.save()
 
 class FlashCardSetRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = FlashCardSet.objects.all()
@@ -376,14 +410,10 @@ class FlashCardListCreateAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         set_id = self.kwargs['setId']
         flashcard_set = get_object_or_404(FlashCardSet, id=set_id)
-        user_limit = self.request.user.daily_limit
+        user_limit, _ = DailyLimit.objects.get_or_create(user=self.request.user)
         user_limit.reset_if_needed()
         if user_limit.flashcards_created_today >= 50 and not self.request.user.is_superuser:
-            self.permission_denied(
-                self.request,
-                message='You have reached the daily limit of 50 flashcards.',
-                code='too_many_requests'
-            )
+            raise Throttled(detail='You have reached the daily limit of 50 flashcards.')
         else:
             serializer.save(set=flashcard_set)
             user_limit.flashcards_created_today += 1

@@ -1,11 +1,17 @@
-{% extends "index.html" %}
+{% extends "base.html" %}
 
 {% block content %}
-<h2>Confirm Removal</h2>
-<p>Are you sure you want to remove "{{ object.set.name }}" from your collection?</p>
+<h2 class="text-2xl font-bold mb-4">Delete Collection</h2>
+<p>Are you sure you want to delete the collection "{{ object.name }}"?</p>
 <form method="post">
     {% csrf_token %}
-    <button type="submit">Yes, Remove</button>
-    <a href="{% url 'collection-list' %}">Cancel</a>
+    <div class="mb-4">
+        <label class="inline-flex items-center">
+            <input type="checkbox" name="delete_sets" class="form-checkbox">
+            <span class="ml-2">Also delete all sets in this collection</span>
+        </label>
+    </div>
+    <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700">Yes, Delete</button>
+    <a href="{% url 'collection-list' %}" class="ml-4 text-blue-500 hover:underline">Cancel</a>
 </form>
 {% endblock %}

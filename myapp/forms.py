@@ -1,5 +1,5 @@
 from django import forms
-from .models import FlashCardSet, FlashCard
+from .models import FlashCardSet, FlashCard, Collection
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
@@ -20,13 +20,15 @@ class FlashCardForm(forms.ModelForm):
         model = FlashCard
         fields = ['question', 'answer', 'difficulty']
         widgets = {
-            'question': forms.TextInput(attrs={
+            'question': forms.Textarea(attrs={
                 'class': 'w-full px-3 py-2 border rounded',
-                'placeholder': 'Question'
+                'placeholder': 'Question',
+                'rows': 4,
             }),
-            'answer': forms.TextInput(attrs={
+            'answer': forms.Textarea(attrs={
                 'class': 'w-full px-3 py-2 border rounded',
-                'placeholder': 'Answer'
+                'placeholder': 'Answer',
+                'rows': 4,
             }),
             'difficulty': forms.Select(attrs={
                 'class': 'w-full px-3 py-2 border rounded',
@@ -61,3 +63,13 @@ class CustomUserCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ['username', 'password1', 'password2']
+
+
+class CollectionForm(forms.ModelForm):
+    class Meta:
+        model = Collection
+        fields = ['name', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'border border-gray-300 rounded px-3 py-2 w-full'}),
+            'description': forms.Textarea(attrs={'class': 'border border-gray-300 rounded px-3 py-2 w-full'}),
+        }

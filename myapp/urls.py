@@ -6,7 +6,7 @@ from .views import (
     modelsPage,
     version,
     register_user,
-    search_view,
+    registration_success,
     # Authentication
     # (Login and logout views are imported from django.contrib.auth.views)
     # Web Interface Views - Flashcard Sets
@@ -25,9 +25,12 @@ from .views import (
     # Web Interface Views - Collections
     CollectionListView,
     CollectionCreateView,
+    CollectionUpdateView,
     CollectionDeleteView,
+    AddSetToCollectionView,
+    RemoveSetFromCollectionView,
     # Search View
-    search_view,
+    SearchView,  # Updated import
     # Additional Views
     BrowseFlashCardSetListView,
     # API Views
@@ -43,8 +46,6 @@ from .views import (
     UserCollectionRetrieveUpdateDestroyAPIView,
     CollectionListCreateAPIView,
     RandomCollectionRedirectView,
-    registration_success,
-    UserRetrieveUpdateDestroyAPIView,
 )
 
 urlpatterns = [
@@ -78,11 +79,15 @@ urlpatterns = [
 
     # Web Interface - Collections
     path('collections/', CollectionListView.as_view(), name='collection-list'),
-    path('sets/<int:set_id>/collect/', CollectionCreateView.as_view(), name='collection-add'),
+    path('collections/add/', CollectionCreateView.as_view(), name='collection-add'),
+    path('collections/<int:pk>/edit/', CollectionUpdateView.as_view(), name='collection-edit'),
     path('collections/<int:pk>/delete/', CollectionDeleteView.as_view(), name='collection-delete'),
+    # Add/Remove Sets to/from Collection
+    path('sets/<int:set_id>/add-to-collection/', AddSetToCollectionView.as_view(), name='add-set-to-collection'),
+    path('sets/<int:set_id>/remove-from-collection/', RemoveSetFromCollectionView.as_view(), name='remove-set-from-collection'),
 
     # Search
-    path('search/', search_view, name='search'),
+    path('search/', SearchView.as_view(), name='search'),  # Updated to use class-based view
     path('browse/', BrowseFlashCardSetListView.as_view(), name='browse-sets'),
 
     # API Endpoints
@@ -103,7 +108,6 @@ urlpatterns = [
     # API - Users
     path('api/users/', UserListCreateAPIView.as_view(), name='api-users'),
     path('api/users/<int:pk>/', UserRetrieveUpdateDestroyAPIView.as_view(), name='api-user-detail'),
-    path('api/users/<int:userId>/', UserRetrieveUpdateDestroyAPIView.as_view(), name='api-user-detail'),
     path('api/users/<int:userId>/sets/', UserFlashCardSetListAPIView.as_view(), name='api-user-sets'),
     path('api/users/<int:userId>/collections/', UserCollectionListAPIView.as_view(), name='api-user-collections'),
     path('api/users/<int:userId>/collections/<int:collectionId>/', UserCollectionRetrieveUpdateDestroyAPIView.as_view(), name='api-user-collection-detail'),

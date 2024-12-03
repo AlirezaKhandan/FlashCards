@@ -1,10 +1,65 @@
-{% extends "index.html" %}
+{% extends "base.html" %}
 
 {% block content %}
-<h2>Edit Flashcard Set</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save Changes</button>
-</form>
+<h2 class="text-2xl font-bold mb-4">Edit Flashcard Set</h2>
+
+<div class="max-w-md mx-auto">
+    <form method="post" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="flex items-center justify-between">
+            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
+                Save Changes
+            </button>
+        </div>
+    </form>
+
+    <!-- Add to Collection Section -->
+    <div class="mt-6">
+        <h3 class="text-xl font-semibold mb-2">Manage Collections</h3>
+        <!-- Add to Collection Form -->
+        <form action="{% url 'add-set-to-collection' object.pk %}" method="post" class="mb-4">
+            {% csrf_token %}
+            <label for="collection_id" class="block mb-2">Add to Collection:</label>
+            <select name="collection_id" id="collection_id" class="border border-gray-300 rounded px-2 py-1 mb-4 w-full">
+                {% with collections=user.collections.all %}
+                    {% if collections %}
+                        {% for collection in collections %}
+                            {% if object not in collection.sets.all %}
+                                <option value="{{ collection.id }}">{{ collection.name }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <option disabled>No collections available. <a href="{% url 'collection-add' %}" class="text-blue-500">Create one now</a>.</option>
+                    {% endif %}
+                {% endwith %}
+            </select>
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">
+                Add to Collection
+            </button>
+        </form>
+
+        <!-- Remove from Collection Form -->
+        <form action="{% url 'remove-set-from-collection' object.pk %}" method="post">
+            {% csrf_token %}
+            <label for="remove_collection_id" class="block mb-2">Remove from Collection:</label>
+            <select name="collection_id" id="remove_collection_id" class="border border-gray-300 rounded px-2 py-1 mb-4 w-full">
+                {% with collections=user.collections.all %}
+                    {% if collections %}
+                        {% for collection in collections %}
+                            {% if object in collection.sets.all %}
+                                <option value="{{ collection.id }}">{{ collection.name }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <option disabled>No collections to remove from.</option>
+                    {% endif %}
+                {% endwith %}
+            </select>
+            <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700">
+                Remove from Collection
+            </button>
+        </form>
+    </div>
+</div>
 {% endblock %}

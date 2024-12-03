@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="text-2xl font-bold mb-4 text-center">Edit Flashcard</h2>
+
+<div class="max-w-lg mx-auto">
+    <form method="post" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+        {% csrf_token %}
+        
+        <!-- Form Fields -->
+        <div class="mb-6">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="id_question">
+                {{ form.question.label }}
+            </label>
+            {{ form.question }}
+            {% if form.question.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.question.errors }}</p>
+            {% endif %}
+        </div>
+
+        <div class="mb-6">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="id_answer">
+                {{ form.answer.label }}
+            </label>
+            {{ form.answer }}
+            {% if form.answer.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.answer.errors }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Difficulty Field (if applicable) -->
+        {% if form.difficulty %}
+        <div class="mb-6">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="id_difficulty">
+                {{ form.difficulty.label }}
+            </label>
+            {{ form.difficulty }}
+            {% if form.difficulty.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.difficulty.errors }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Buttons -->
+        <div class="flex items-center justify-between">
+            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
+                Save Changes
+            </button>
+            <a href="{% url 'flashcard-set-detail' object.set.id %}" class="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

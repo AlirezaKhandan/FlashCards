@@ -230,7 +230,6 @@ class FlashCardSetAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username='apiuser', password='password123')
-        DailyLimit.objects.create(user=self.user)
         self.client.force_authenticate(user=self.user)
 
     def test_create_flashcard_set_api_within_limit(self):
@@ -252,7 +251,7 @@ class FlashCardAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username='apiuser', password='password123')
-        DailyLimit.objects.create(user=self.user)
+        DailyLimit.objects.get_or_create(user=self.user)
         self.flashcard_set = FlashCardSet.objects.create(name='API Set', author=self.user)
         self.client.force_authenticate(user=self.user)
 

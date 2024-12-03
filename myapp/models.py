@@ -3,6 +3,7 @@ from django.contrib.auth.models import User  # Import the default User model
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.timezone import now
+from django.utils import timezone
 
 # Choices for difficulty levels
 class Difficulty(models.TextChoices):
@@ -50,26 +51,20 @@ class FlashCard(models.Model):
 
 class Collection(models.Model):
     """Model representing a collection of flashcard sets by a user."""
-    comment = models.TextField(blank=True, null=True, default="")
-    set = models.ForeignKey(
-        FlashCardSet,
-        on_delete=models.SET_NULL,
-        related_name="collections",
-        null=True,
-        blank=True
-    )
+    name = models.CharField(max_length=255, default='Untitled Collection')
+    description = models.TextField(blank=True, null=True)
     author = models.ForeignKey(
         User,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         related_name="collections",
-        null=True,
-        blank=True
+        null=False,  # Make non-nullable
+        blank=False
     )
+    sets = models.ManyToManyField(FlashCardSet, related_name='collections')
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     def __str__(self):
-        author_name = self.author.username if self.author else "Unknown Author"
-        set_name = self.set.name if self.set else "Unknown Set"
-        return f"Collection by {author_name} on {set_name}"
+        return f"Collection '{self.name}' by {self.author.username}"
 
 
 class Comment(models.Model):

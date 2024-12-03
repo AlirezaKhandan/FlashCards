@@ -1,18 +1,43 @@
-{% extends "index.html" %}
+{% extends "base.html" %}
 
 {% block content %}
-<h2>Your Collections</h2>
-<ul>
-    {% for collection in collections %}
-    <li>
-        <a href="{% url 'flashcard-set-detail' collection.set.pk %}">{{ collection.set.name }}</a>
-        <form action="{% url 'collection-delete' collection.pk %}" method="post" style="display:inline;">
-            {% csrf_token %}
-            <button type="submit">Remove</button>
-        </form>
-    </li>
-    {% empty %}
-    <li>You have no collections yet.</li>
-    {% endfor %}
-</ul>
+<h2 class="text-2xl font-bold mb-4 text-center">Your Collections</h2>
+
+<!-- Center the "Create New Collection" Button -->
+<div class="flex justify-center mb-6">
+    <a href="{% url 'collection-add' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Create New Collection
+    </a>
+</div>
+
+{% if collections %}
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for collection in collections %}
+        <div class="bg-white border rounded p-4 shadow">
+            <h3 class="text-xl font-semibold mb-2">{{ collection.name }}</h3>
+            <p class="text-gray-600 mb-4">{{ collection.description }}</p>
+            <p class="text-sm text-gray-500 mb-4">Created on {{ collection.created_at|date:"F j, Y" }}</p>
+            <p class="mb-4 font-semibold">Sets in this collection:</p>
+            <ul class="list-disc pl-5 mb-4">
+                {% for set in collection.sets.all %}
+                <li>
+                    <a href="{% url 'flashcard-set-detail' set.pk %}" class="text-blue-500 hover:underline">{{ set.name }}</a>
+                </li>
+                {% empty %}
+                <li>No sets in this collection.</li>
+                {% endfor %}
+            </ul>
+            <div class="mt-4 flex space-x-2">
+                <a href="{% url 'collection-edit' collection.pk %}" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-700">Edit</a>
+                <form action="{% url 'collection-delete' collection.pk %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-700">Delete</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="mt-4 text-center">You have no collections yet.</p>
+{% endif %}
 {% endblock %}
