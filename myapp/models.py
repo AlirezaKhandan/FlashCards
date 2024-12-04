@@ -4,6 +4,8 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.timezone import now
 from django.utils import timezone
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 
 # Choices for difficulty levels
 class Difficulty(models.TextChoices):
@@ -33,6 +35,7 @@ class FlashCard(models.Model):
     """Model representing a single flashcard."""
     question = models.CharField(max_length=255, default="Default Question")
     answer = models.CharField(max_length=255, default="Default Answer")
+    created_at = models.DateTimeField(auto_now_add=True)
     difficulty = models.CharField(
         max_length=10,
         choices=Difficulty.choices,
@@ -68,13 +71,7 @@ class Collection(models.Model):
 
 
 class Comment(models.Model):
-    """Model representing comments on a flashcard set."""
-    comment = models.TextField()
-    flashcard_set = models.ForeignKey(
-        FlashCardSet,
-        on_delete=models.CASCADE,
-        related_name="comments"
-    )
+    """Model representing comments on a flashcard set or collection."""
     author = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -82,42 +79,58 @@ class Comment(models.Model):
         null=True,
         blank=True
     )
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Generic ForeignKey to associate comments with either FlashCardSet or Collection
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
 
     def __str__(self):
         author_name = self.author.username if self.author else "Unknown Author"
-        return f"Comment by {author_name}: {self.comment[:50]}..."
+        return f"Comment by {author_name} on {self.content_object}"
 
 
-class DailyLimit(models.Model):
-    """Model to track daily creation limits for flashcard sets and flashcards."""
-    user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name="daily_limit"
-    )
-    sets_created_today = models.PositiveIntegerField(default=0)
-    flashcards_created_today = models.PositiveIntegerField(default=0)
-    last_reset_date = models.DateField(auto_now_add=True)
 
-    def reset_if_needed(self):
-        """Reset daily limits if the current date has changed."""
-        if self.last_reset_date != now().date():
-            self.sets_created_today = 0
-            self.flashcards_created_today = 0
-            self.last_reset_date = now().date()
-            self.save(update_fields=[
-                "sets_created_today",
-                "flashcards_created_today",
-                "last_reset_date"
-            ])
+class CreationLimit(models.Model):
+    """Singleton model to store global creation limits adjustable by admin."""
+    daily_flashcard_limit = models.PositiveIntegerField(default=20)
+    daily_set_limit = models.PositiveIntegerField(default=5)
+    daily_collection_limit = models.PositiveIntegerField(default=5)
+
+    def save(self, *args, **kwargs):
+        self.pk = 1  # Ensure only one instance exists
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"DailyLimit for {self.user.username}"
+        return "Global Creation Limits"
+    
 
 
-# Signal to initialize DailyLimit when a new user is created
-@receiver(post_save, sender=User)
-def create_daily_limit(sender, instance, created, **kwargs):
-    """Create a DailyLimit instance for a new user."""
-    if created:
-        DailyLimit.objects.create(user=instance)
+class Rating(models.Model):
+    """Model representing a rating for a flashcard set or flashcard."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ratings')
+    score = models.PositiveSmallIntegerField(choices=[(i, str(i)) for i in range(1, 6)])
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    class Meta:
+        unique_together = ('user', 'content_type', 'object_id')
+
+    def __str__(self):
+        return f"Rating {self.score} by {self.user.username} for {self.content_object}"
+
+class UserDailyCreation(models.Model):
+    """Model to track daily creation counts for each user."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='daily_creations')
+    date = models.DateField(default=timezone.now)
+    flashcards_created = models.PositiveIntegerField(default=0)
+    sets_created = models.PositiveIntegerField(default=0)
+    collections_created = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ('user', 'date')
+
+    def __str__(self):
+        return f"Daily creations for {self.user.username} on {self.date}"

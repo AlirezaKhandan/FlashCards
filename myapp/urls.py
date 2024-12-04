@@ -46,6 +46,8 @@ from .views import (
     UserCollectionRetrieveUpdateDestroyAPIView,
     CollectionListCreateAPIView,
     RandomCollectionRedirectView,
+    RateItemView,
+    FlashCardAddMoreView,
 )
 
 urlpatterns = [
@@ -85,6 +87,7 @@ urlpatterns = [
     # Add/Remove Sets to/from Collection
     path('sets/<int:set_id>/add-to-collection/', AddSetToCollectionView.as_view(), name='add-set-to-collection'),
     path('sets/<int:set_id>/remove-from-collection/', RemoveSetFromCollectionView.as_view(), name='remove-set-from-collection'),
+    path('sets/<int:set_id>/add_more/', FlashCardAddMoreView.as_view(), name='flashcard-add-more'),
 
     # Search
     path('search/', SearchView.as_view(), name='search'),  # Updated to use class-based view
@@ -115,4 +118,6 @@ urlpatterns = [
     # API - Collections
     path('api/collections/', CollectionListCreateAPIView.as_view(), name='api-collections'),
     path('api/collections/random/', RandomCollectionRedirectView.as_view(), name='api-collections-random'),
+
+    path('rate/', RateItemView.as_view(), name='rate-item'),
 ]

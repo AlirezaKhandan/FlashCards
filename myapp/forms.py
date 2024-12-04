@@ -1,5 +1,5 @@
 from django import forms
-from .models import FlashCardSet, FlashCard, Collection
+from .models import FlashCardSet, FlashCard, Collection, Comment
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
@@ -72,4 +72,18 @@ class CollectionForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': 'border border-gray-300 rounded px-3 py-2 w-full'}),
             'description': forms.Textarea(attrs={'class': 'border border-gray-300 rounded px-3 py-2 w-full'}),
+        }
+
+
+
+class CommentForm(forms.ModelForm):
+    class Meta:
+        model = Comment
+        fields = ['content']
+        widgets = {
+            'content': forms.Textarea(attrs={
+                'class': 'w-full px-3 py-2 border rounded',
+                'placeholder': 'Add a comment...',
+                'rows': 3,
+            }),
         }

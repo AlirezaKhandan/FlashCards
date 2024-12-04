@@ -4,7 +4,7 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView
+from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView, TemplateView
 from django.views import View  # Import View for the create view
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
@@ -17,7 +17,7 @@ from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import Throttled
 
-from .models import FlashCardSet, FlashCard, Comment, DailyLimit, Collection, User
+from .models import FlashCardSet, FlashCard, Comment, Collection, User
 from .serializers import FlashCardSetSerializer, FlashCardSerializer, CommentSerializer, CollectionSerializer, UserSerializer
 from .forms import FlashCardSetForm, FlashCardForm, CustomUserCreationForm, CollectionForm
 
@@ -31,6 +31,15 @@ from rest_framework import status
 from django.shortcuts import redirect
 from django.urls import reverse
 import random
+
+from django.contrib.contenttypes.models import ContentType
+from .forms import CommentForm
+from django.db.models import Avg
+
+from django.utils import timezone
+from django.contrib import messages
+from .models import CreationLimit, UserDailyCreation
+
 
 
 
@@ -93,17 +102,19 @@ class FlashCardSetCreateView(LoginRequiredMixin, CreateView):
     success_url = reverse_lazy('flashcard-set-list')
 
     def form_valid(self, form):
-        user_limit = self.request.user.daily_limit
-        user_limit.reset_if_needed()
-        if user_limit.sets_created_today >= 5:
-            return JsonResponse(
-                {'error': 'You have reached the daily limit of 5 flashcard sets.'}, 
-                status=429
-            )
+        today = timezone.now().date()
+        user_daily, _ = UserDailyCreation.objects.get_or_create(user=self.request.user, date=today)
+        creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
+
+        if user_daily.sets_created >= creation_limit.daily_set_limit:
+            messages.error(self.request, "You have reached your daily limit for creating flashcard sets.")
+            return redirect('flashcard-set-list')
+
         form.instance.author = self.request.user
-        user_limit.sets_created_today += 1
-        user_limit.save()
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        user_daily.sets_created += 1
+        user_daily.save()
+        return response
 
 class FlashCardSetDeleteView(LoginRequiredMixin, DeleteView):
     model = FlashCardSet
@@ -132,7 +143,36 @@ class FlashCardSetDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         # Prepare flashcards data for JSON serialization
         context['flashcards'] = list(self.object.cards.values('id', 'question', 'answer'))
+
+        # Comments
+        content_type = ContentType.objects.get_for_model(FlashCardSet)
+        comments = Comment.objects.filter(
+            content_type=content_type,
+            object_id=self.object.id
+        ).order_by('-created_at')
+        context['comments'] = comments
+        context['comment_form'] = CommentForm()
+
+        # Average Rating
+        average_rating = Rating.objects.filter(
+            content_type=content_type,
+            object_id=self.object.id
+        ).aggregate(Avg('score'))['score__avg'] or 0
+        context['average_rating'] = round(average_rating, 1)
+
         return context
+
+    def post(self, request, *args, **kwargs):
+        if 'comment_form' in request.POST:
+            self.object = self.get_object()
+            form = CommentForm(request.POST)
+            if form.is_valid():
+                comment = form.save(commit=False)
+                comment.author = request.user
+                comment.content_object = self.object
+                comment.save()
+                return redirect('flashcard-set-detail', pk=self.object.pk)
+        return super().get(request, *args, **kwargs)
 
 
 # Flashcard Views
@@ -157,7 +197,8 @@ class FlashCardCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse_lazy('flashcard-set-detail', kwargs={'pk': self.kwargs['set_id']})
+        return reverse_lazy('flashcard-add-more', kwargs={'set_id': self.kwargs['set_id']})
+
 
 
 class FlashCardUpdateView(LoginRequiredMixin, UpdateView):
@@ -489,3 +530,44 @@ class RandomCollectionRedirectView(APIView):
             }))
         else:
             return Response({'error': 'There are no flashcard set collections'}, status=status.HTTP_404_NOT_FOUND)
+        
+
+
+
+class RateItemView(LoginRequiredMixin, View):
+    def post(self, request):
+        score = int(request.POST.get('score'))
+        model_name = request.POST.get('model')
+        object_id = int(request.POST.get('object_id'))
+
+        content_type = ContentType.objects.get(model=model_name)
+        obj = content_type.get_object_for_this_type(id=object_id)
+
+        # Save or update the rating
+        Rating.objects.update_or_create(
+            user=request.user,
+            content_type=content_type,
+            object_id=object_id,
+            defaults={'score': score}
+        )
+
+        # Calculate new average rating
+        average_rating = Rating.objects.filter(
+            content_type=content_type,
+            object_id=object_id
+        ).aggregate(Avg('score'))['score__avg']
+
+        return JsonResponse({'average_rating': average_rating})
+    
+
+
+
+
+class FlashCardAddMoreView(LoginRequiredMixin, TemplateView):
+    template_name = 'cards/add_more.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['set_id'])
+        context['set'] = flashcard_set
+        return context
