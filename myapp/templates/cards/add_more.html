@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white p-6 rounded-md shadow-md text-center">
+    <h2 class="text-2xl font-bold mb-6">Flashcard Added Successfully!</h2>
+    <div class="mt-4 flex flex-col space-y-4">
+        <a href="{% url 'flashcard-add' set.id %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Add Another Flashcard</a>
+        <a href="{% url 'flashcard-set-detail' set.id %}" class="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400">Back to Set</a>
+    </div>
+</div>
+{% endblock %}

@@ -17,7 +17,7 @@ from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import Throttled
 
-from .models import FlashCardSet, FlashCard, Comment, Collection, User
+from .models import FlashCardSet, FlashCard, Comment, Collection, User, Rating
 from .serializers import FlashCardSetSerializer, FlashCardSerializer, CommentSerializer, CollectionSerializer, UserSerializer
 from .forms import FlashCardSetForm, FlashCardForm, CustomUserCreationForm, CollectionForm
 
@@ -183,18 +183,21 @@ class FlashCardCreateView(LoginRequiredMixin, CreateView):
     template_name = 'cards/add.html'
 
     def form_valid(self, form):
-        user_limit = self.request.user.daily_limit
-        user_limit.reset_if_needed()
+        user = self.request.user
+        today = timezone.now().date()
+        user_daily_creation, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
+        creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
         flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['set_id'])
-        if user_limit.flashcards_created_today >= 50:
-            return JsonResponse(
-                {'error': 'You have reached the daily limit of 50 flashcards.'},
-                status=429
-            )
-        form.instance.set = flashcard_set
-        user_limit.flashcards_created_today += 1
-        user_limit.save()
-        return super().form_valid(form)
+
+        if user_daily_creation.flashcards_created >= creation_limit.daily_flashcard_limit and not user.is_superuser:
+            messages.error(self.request, 'You have reached the daily limit of {} flashcards.'.format(creation_limit.daily_flashcard_limit))
+            return redirect('flashcard-set-detail', pk=flashcard_set.pk)
+        else:
+            form.instance.set = flashcard_set
+            response = super().form_valid(form)
+            user_daily_creation.flashcards_created += 1
+            user_daily_creation.save()
+            return response
 
     def get_success_url(self):
         return reverse_lazy('flashcard-add-more', kwargs={'set_id': self.kwargs['set_id']})
@@ -409,14 +412,23 @@ class FlashCardSetListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):
-        user_limit, _ = DailyLimit.objects.get_or_create(user=self.request.user)
-        user_limit.reset_if_needed()
-        if user_limit.sets_created_today >= 5 and not self.request.user.is_superuser:
-            raise Throttled(detail='You have reached the daily limit of 5 flashcard sets.')
+        today = timezone.now().date()
+        user = self.request.user
+
+        # Get or create the UserDailyCreation instance for the user and today
+        user_daily_creation, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
+
+        # Get the global creation limits
+        creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
+
+        # Check if the user has exceeded the daily set creation limit
+        if user_daily_creation.sets_created >= creation_limit.daily_set_limit and not user.is_superuser:
+            raise Throttled(detail='You have reached the daily limit of {} flashcard sets.'.format(creation_limit.daily_set_limit))
         else:
-            serializer.save(author=self.request.user)
-            user_limit.sets_created_today += 1
-            user_limit.save()
+            serializer.save(author=user)
+            user_daily_creation.sets_created += 1
+            user_daily_creation.save()
+
 
 class FlashCardSetRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = FlashCardSet.objects.all()
@@ -449,16 +461,25 @@ class FlashCardListCreateAPIView(generics.ListCreateAPIView):
         return FlashCard.objects.filter(set_id=set_id)
 
     def perform_create(self, serializer):
+        user = self.request.user
+        today = timezone.now().date()
+
         set_id = self.kwargs['setId']
         flashcard_set = get_object_or_404(FlashCardSet, id=set_id)
-        user_limit, _ = DailyLimit.objects.get_or_create(user=self.request.user)
-        user_limit.reset_if_needed()
-        if user_limit.flashcards_created_today >= 50 and not self.request.user.is_superuser:
-            raise Throttled(detail='You have reached the daily limit of 50 flashcards.')
+
+        # Get or create the UserDailyCreation instance for the user and today
+        user_daily_creation, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
+
+        # Get the global creation limits
+        creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
+
+        # Check if the user has exceeded the daily flashcard creation limit
+        if user_daily_creation.flashcards_created >= creation_limit.daily_flashcard_limit and not user.is_superuser:
+            raise Throttled(detail='You have reached the daily limit of {} flashcards.'.format(creation_limit.daily_flashcard_limit))
         else:
             serializer.save(set=flashcard_set)
-            user_limit.flashcards_created_today += 1
-            user_limit.save()
+            user_daily_creation.flashcards_created += 1
+            user_daily_creation.save()
 
 
 class FlashCardRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -571,3 +592,4 @@ class FlashCardAddMoreView(LoginRequiredMixin, TemplateView):
         flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['set_id'])
         context['set'] = flashcard_set
         return context
+

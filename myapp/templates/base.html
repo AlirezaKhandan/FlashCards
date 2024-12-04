@@ -22,7 +22,6 @@
 
             <!-- Navigation Links -->
             {% if user.is_authenticated %}
-                <a href="{% url 'flashcard-set-add' %}" class="text-lg font-medium hover:text-blue-400">New Set</a>
                 <a href="{% url 'flashcard-set-list' %}" class="text-lg font-medium hover:text-blue-400">My Sets</a>
                 <a href="{% url 'collection-list' %}" class="text-lg font-medium hover:text-blue-400">My Collections</a>
             {% endif %}

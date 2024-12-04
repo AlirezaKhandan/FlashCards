@@ -80,16 +80,24 @@ class Comment(models.Model):
         blank=True
     )
     content = models.TextField()
+    # Add default value for created_at
     created_at = models.DateTimeField(auto_now_add=True)
-    # Generic ForeignKey to associate comments with either FlashCardSet or Collection
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
+    # Keep the old field temporarily
+    flashcard_set = models.ForeignKey(
+        FlashCardSet,
+        on_delete=models.CASCADE,
+        related_name="comments",
+        null=True,  # Make nullable temporarily
+        blank=True
+    )
+    # New fields, made nullable temporarily
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
+    object_id = models.PositiveIntegerField(null=True, blank=True)
     content_object = GenericForeignKey('content_type', 'object_id')
 
     def __str__(self):
         author_name = self.author.username if self.author else "Unknown Author"
         return f"Comment by {author_name} on {self.content_object}"
-
 
 
 class CreationLimit(models.Model):

@@ -1,17 +1,86 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">{{ set.name }}</h1>
+<div class="flex">
+    <!-- Side Section -->
+    <aside class="w-1/4 mr-6">
+        <div class="bg-white p-4 rounded shadow">
+            <h3 class="text-lg font-semibold mb-4">Set Information</h3>
+            <p><strong>Total Flashcards:</strong> {{ flashcards|length }}</p>
+            <p><strong>Current Flashcard:</strong> <span id="flashcard-counter">1/{{ flashcards|length }}</span></p>
 
-<!-- Flashcard Container -->
-<div id="flashcard-container" class="my-4 p-6 border rounded-lg shadow-md">
-    <!-- Flashcard content will be injected here by JavaScript -->
-</div>
 
-<!-- Navigation Buttons -->
-<div class="flex justify-between mt-4">
-    <button id="prev-button" class="bg-gray-300 px-4 py-2 rounded">Previous</button>
-    <button id="show-answer-button" class="bg-blue-500 text-white px-4 py-2 rounded">Show Answer</button>
-    <button id="next-button" class="bg-gray-300 px-4 py-2 rounded">Next</button>
+            <!-- Rating Display -->
+            <div class="mt-4">
+                <h4 class="text-md font-semibold">Rating: {{ average_rating|floatformat:1 }} ⭐</h4>
+                {% if user.is_authenticated %}
+                    <button id="show-rating-form-button" class="mt-2 bg-blue-500 text-white px-2 py-1 rounded">Rate this set</button>
+                    <form id="rating-form" method="post" style="display: none; margin-top: 10px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="model" value="flashcardset">
+                        <input type="hidden" name="object_id" value="{{ set.id }}">
+                        <label for="score">Your Rating:</label>
+                        <select name="score" id="score" class="border rounded">
+                            {% for i in "12345"|make_list %}
+                                <option value="{{ i }}">{{ i }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="bg-blue-500 text-white px-2 py-1 rounded">Submit</button>
+                    </form>
+                {% else %}
+                    <p><a href="{% url 'login' %}" class="text-blue-500 hover:underline">Log in</a> to rate this set.</p>
+                {% endif %}
+            </div>
+
+
+            <!-- Add Flashcard Button -->
+            {% if user == set.author %}
+            <div class="mt-4">
+                <a href="{% url 'flashcard-add' set.id %}" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">Add New Flashcard</a>
+            </div>
+            {% endif %}
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="w-3/4">
+        <h1 class="text-2xl font-bold mb-4">{{ set.name }}</h1>
+
+        <!-- Flashcard Container -->
+        <div id="flashcard-container" class="my-4 p-6 border rounded-lg shadow-md">
+            <!-- Flashcard content will be injected here by JavaScript -->
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="flex justify-between mt-4">
+            <button id="prev-button" class="bg-gray-300 px-4 py-2 rounded">Previous</button>
+            <button id="show-answer-button" class="bg-blue-500 text-white px-4 py-2 rounded">Show Answer</button>
+            <button id="next-button" class="bg-gray-300 px-4 py-2 rounded">Next</button>
+        </div>
+
+        <!-- Comments Section -->
+        <div class="mt-8">
+            <h3 class="text-xl font-bold mb-4">Comments</h3>
+            {% for comment in comments %}
+                <div class="mb-4 border-b pb-2">
+                    <p class="text-gray-700"><strong>{{ comment.author.username }}</strong> said:</p>
+                    <p class="text-gray-900">{{ comment.content }}</p>
+                    <p class="text-gray-500 text-sm">{{ comment.created_at|date:"F j, Y, g:i a" }}</p>
+                </div>
+            {% empty %}
+                <p>No comments yet.</p>
+            {% endfor %}
+
+            {% if user.is_authenticated %}
+                <form method="post">
+                    {% csrf_token %}
+                    {{ comment_form.as_p }}
+                    <button type="submit" name="comment_form" class="bg-blue-500 text-white px-4 py-2 rounded">Post Comment</button>
+                </form>
+            {% else %}
+                <p><a href="{% url 'login' %}" class="text-blue-500 hover:underline">Log in</a> to post a comment.</p>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
 <!-- Include JavaScript Data -->
@@ -24,40 +93,45 @@
     let showingAnswer = false;
 
     function renderFlashcard() {
-        const container = document.getElementById('flashcard-container');
-        if (flashcards.length === 0) {
-            container.innerHTML = `
-                <p>No flashcards in this set.</p>
-                <p>
-                    <a href="{% url 'flashcard-add' set.id %}" class="text-blue-600 hover:underline">
-                        Add a flashcard
-                    </a>.
-                </p>
-            `;
-            // Hide navigation buttons when there are no flashcards
-            document.getElementById('prev-button').style.display = 'none';
-            document.getElementById('show-answer-button').style.display = 'none';
-            document.getElementById('next-button').style.display = 'none';
-            return;
-        }
-
-        const flashcard = flashcards[currentIndex];
+    const container = document.getElementById('flashcard-container');
+    if (flashcards.length === 0) {
         container.innerHTML = `
-            <h3 class="text-xl font-semibold mb-2">${showingAnswer ? 'Answer' : 'Question'}</h3>
-            <p class="text-lg mb-4">${showingAnswer ? flashcard.answer : flashcard.question}</p>
-            {% if user == set.author %}
-                <div class="flex space-x-4">
-                    <a href="{% url 'flashcard-edit' '0' %}".replace('0', flashcard.id) class="text-blue-500 hover:underline">
-                        Edit
-                    </a>
-                    <form action="{% url 'flashcard-delete' '0' %}".replace('0', flashcard.id) method="post" class="inline">
-                        {% csrf_token %}
-                        <button type="submit" class="text-red-500 hover:underline">Delete</button>
-                    </form>
-                </div>
-            {% endif %}
+            <p>No flashcards in this set.</p>
+            <p>
+                <a href="{% url 'flashcard-add' set.id %}" class="text-blue-600 hover:underline">
+                    Add a flashcard
+                </a>.
+            </p>
         `;
+        // Hide navigation buttons when there are no flashcards
+        document.getElementById('prev-button').style.display = 'none';
+        document.getElementById('show-answer-button').style.display = 'none';
+        document.getElementById('next-button').style.display = 'none';
+        // Update flashcard counter
+        document.getElementById('flashcard-counter').innerText = '0/0';
+        return;
     }
+
+    const flashcard = flashcards[currentIndex];
+    container.innerHTML = `
+        <h3 class="text-xl font-semibold mb-2">${showingAnswer ? 'Answer' : 'Question'}</h3>
+        <p class="text-lg mb-4">${showingAnswer ? flashcard.answer : flashcard.question}</p>
+        {% if user == set.author %}
+            <div class="flex space-x-4">
+                <a href="{% url 'flashcard-edit' '0' %}".replace('0', flashcard.id) class="text-blue-500 hover:underline">
+                    Edit
+                </a>
+                <form action="{% url 'flashcard-delete' '0' %}".replace('0', flashcard.id) method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="text-red-500 hover:underline">Delete</button>
+                </form>
+            </div>
+        {% endif %}
+    `;
+    
+    // Update flashcard counter
+    document.getElementById('flashcard-counter').innerText = (currentIndex + 1) + '/' + flashcards.length;
+}
 
     // Event listeners for navigation buttons
     document.getElementById('prev-button').addEventListener('click', () => {
@@ -79,6 +153,37 @@
 
     // Initial render
     renderFlashcard();
+</script>
+
+<!-- AJAX for Rating Submission -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $('#rating-form').on('submit', function(e) {
+        e.preventDefault();
+        $.ajax({
+            url: "{% url 'rate-item' %}",
+            method: "POST",
+            data: $(this).serialize(),
+            success: function(data) {
+                alert('Rating submitted! New average rating: ' + data.average_rating.toFixed(1));
+                // Update the displayed average rating
+                $('h4.text-md.font-semibold').text('Rating: ' + data.average_rating.toFixed(1) + ' ⭐');
+            },
+            error: function() {
+                alert('There was an error submitting your rating.');
+            }
+        });
+    });
+</script>
+
+<script>
+    document.getElementById('show-rating-form-button').addEventListener('click', function() {
+        var ratingForm = document.getElementById('rating-form');
+        if (ratingForm.style.display === 'none') {
+            ratingForm.style.display = 'block';
+            this.style.display = 'none';
+        }
+    });
 </script>
 
 {% endblock %}

@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">My Flashcard Sets</h1>
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">My Flashcard Sets</h1>
+    <a href="{% url 'flashcard-set-add' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Create New Set
+    </a>
+</div>
 {% if sets %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for set in sets %}

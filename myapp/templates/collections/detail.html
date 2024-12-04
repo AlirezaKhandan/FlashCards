@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex">
+    <!-- Side Section -->
+    <aside class="w-1/4 mr-6">
+        <div class="bg-white p-4 rounded shadow">
+            <h3 class="text-lg font-semibold mb-4">Collection Information</h3>
+            <p><strong>Name:</strong> {{ collection.name }}</p>
+            <p><strong>Description:</strong> {{ collection.description }}</p>
+            <p><strong>Total Sets:</strong> {{ collection.sets.count }}</p>
+
+            <!-- Rating Display -->
+            <div class="mt-4">
+                <h4 class="text-md font-semibold">Rating: {{ average_rating|floatformat:1 }} ⭐</h4>
+                {% if user.is_authenticated %}
+                    <form id="rating-form" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="model" value="collection">
+                        <input type="hidden" name="object_id" value="{{ collection.id }}">
+                        <label for="score">Rate this collection:</label>
+                        <select name="score" id="score" class="border rounded">
+                            {% for i in "12345"|make_list %}
+                                <option value="{{ i }}">{{ i }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="bg-blue-500 text-white px-2 py-1 rounded">Rate</button>
+                    </form>
+                {% else %}
+                    <p><a href="{% url 'login' %}" class="text-blue-500 hover:underline">Log in</a> to rate this collection.</p>
+                {% endif %}
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="w-3/4">
+        <h1 class="text-2xl font-bold mb-4">{{ collection.name }}</h1>
+        <p class="mb-4">{{ collection.description }}</p>
+
+        <!-- List of Sets in the Collection -->
+        <h2 class="text-xl font-semibold mb-2">Sets in this Collection:</h2>
+        <ul class="list-disc pl-5 mb-4">
+            {% for set in collection.sets.all %}
+                <li>
+                    <a href="{% url 'flashcard-set-detail' set.pk %}" class="text-blue-500 hover:underline">{{ set.name }}</a>
+                </li>
+            {% empty %}
+                <li>No sets in this collection.</li>
+            {% endfor %}
+        </ul>
+
+        <!-- Comments Section -->
+        <div class="mt-8">
+            <h3 class="text-xl font-bold mb-4">Comments</h3>
+            {% for comment in comments %}
+                <div class="mb-4 border-b pb-2">
+                    <p class="text-gray-700"><strong>{{ comment.author.username }}</strong> said:</p>
+                    <p class="text-gray-900">{{ comment.content }}</p>
+                    <p class="text-gray-500 text-sm">{{ comment.created_at|date:"F j, Y, g:i a" }}</p>
+                </div>
+            {% empty %}
+                <p>No comments yet.</p>
+            {% endfor %}
+
+            {% if user.is_authenticated %}
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <button type="submit" name="comment_form" class="bg-blue-500 text-white px-4 py-2 rounded">Post Comment</button>
+                </form>
+            {% else %}
+                <p><a href="{% url 'login' %}" class="text-blue-500 hover:underline">Log in</a> to post a comment.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- AJAX for Rating Submission -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $('#rating-form').on('submit', function(e) {
+        e.preventDefault();
+        $.ajax({
+            url: "{% url 'rate-item' %}",
+            method: "POST",
+            data: $(this).serialize(),
+            success: function(data) {
+                alert('Rating submitted! New average rating: ' + data.average_rating.toFixed(1));
+                // Update the displayed average rating
+                $('h4.text-md.font-semibold').text('Rating: ' + data.average_rating.toFixed(1) + ' ⭐');
+            },
+            error: function() {
+                alert('There was an error submitting your rating.');
+            }
+        });
+    });
+</script>
+
+{% endblock %}

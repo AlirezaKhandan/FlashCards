@@ -89,6 +89,7 @@ urlpatterns = [
     path('sets/<int:set_id>/remove-from-collection/', RemoveSetFromCollectionView.as_view(), name='remove-set-from-collection'),
     path('sets/<int:set_id>/add_more/', FlashCardAddMoreView.as_view(), name='flashcard-add-more'),
 
+
     # Search
     path('search/', SearchView.as_view(), name='search'),  # Updated to use class-based view
     path('browse/', BrowseFlashCardSetListView.as_view(), name='browse-sets'),
