@@ -9,9 +9,9 @@ from django.contrib.contenttypes.models import ContentType
 
 # Choices for difficulty levels
 class Difficulty(models.TextChoices):
-    EASY = "Easy", "Easy"
-    MEDIUM = "Medium", "Medium"
-    HARD = "Hard", "Hard"
+    EASY = "Easy", "easy"
+    MEDIUM = "Medium", "medium"
+    HARD = "Hard", "hard"
 
 
 class FlashCardSet(models.Model):
@@ -36,17 +36,8 @@ class FlashCard(models.Model):
     question = models.CharField(max_length=255, default="Default Question")
     answer = models.CharField(max_length=255, default="Default Answer")
     created_at = models.DateTimeField(auto_now_add=True)
-    difficulty = models.CharField(
-        max_length=10,
-        choices=Difficulty.choices,
-        null=True,
-        blank=True,
-    )
-    set = models.ForeignKey(
-        FlashCardSet,
-        on_delete=models.CASCADE,
-        related_name="cards"
-    )
+    difficulty = models.CharField(max_length=10, choices=Difficulty.choices, null=True,blank=True)
+    set = models.ForeignKey(FlashCardSet, related_name="cards", on_delete=models.CASCADE)
 
     def __str__(self):
         return f"FlashCard: {self.question}"

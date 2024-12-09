@@ -1,25 +1,84 @@
 {% extends "base.html" %}
-
+{% load static %}
 {% block content %}
-<h2>Search Results for "{{ query }}"</h2>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+    <h1 class="text-2xl font-bold text-gray-800 mb-4">Search Results for "{{ query }}"</h1>
 
-<h3>Flashcard Sets</h3>
-<ul>
-    {% for set in flashcard_sets %}
-    <li>
-        <a href="{% url 'flashcard-set-detail' set.pk %}">{{ set.name }}</a> by {{ set.author.username }}
-    </li>
-    {% empty %}
-    <li>No flashcard sets found.</li>
-    {% endfor %}
-</ul>
+    <!-- Flashcard Sets Section -->
+    <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Flashcard Sets</h2>
+    {% if results %}
+        <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {% for set in results %}
+            <div class="relative bg-white border border-gray-200 rounded-lg shadow-sm p-4 group hover:shadow-lg hover:border-indigo-500 transition duration-200">
+                <div class="text-lg font-medium text-gray-900">{{ set.name }}</div>
+                <div class="text-sm text-gray-600">By {{ set.author.username }}</div>
+                <a href="{% url 'flashcard-set-detail' set.pk %}" class="text-indigo-600 hover:text-indigo-800 text-sm mt-2 inline-block">View Details</a>
 
-<h3>Users</h3>
-<ul>
-    {% for user in users %}
-    <li>{{ user.username }}</li>
-    {% empty %}
-    <li>No users found.</li>
-    {% endfor %}
-</ul>
+                <!-- Add button on hover -->
+                <button 
+                    class="hidden group-hover:inline-block absolute top-2 right-2 bg-indigo-500 text-white px-3 py-1 rounded text-sm hover:bg-indigo-600 transition add-button"
+                    data-type="set"
+                    data-id="{{ set.pk }}"
+                >
+                    Add
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-gray-600">No flashcard sets found.</div>
+    {% endif %}
+
+    <!-- Collections Section -->
+    <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Collections</h2>
+    {% if collections %}
+        <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {% for collection in collections %}
+            <div class="relative bg-white border border-gray-200 rounded-lg shadow-sm p-4 group hover:shadow-lg hover:border-indigo-500 transition duration-200">
+                <div class="text-lg font-medium text-gray-900">{{ collection.name }}</div>
+                <div class="text-sm text-gray-600">By {{ collection.author.username }}</div>
+                <!-- Link to collection detail if it exists -->
+                <a href="{% url 'api-user-collection-detail' userId=collection.author.id collectionId=collection.pk %}" class="text-indigo-600 hover:text-indigo-800 text-sm mt-2 inline-block">View Collection</a>
+
+                <!-- Add button on hover -->
+                <button 
+                    class="hidden group-hover:inline-block absolute top-2 right-2 bg-indigo-500 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700 transition add-button"
+                    data-type="collection"
+                    data-id="{{ collection.pk }}"
+                >
+                    Add
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-gray-600">No collections found.</div>
+    {% endif %}
+
+    <!-- Users Section -->
+    <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Users</h2>
+    {% if users %}
+        <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {% for user in users %}
+            <div class="relative bg-white border border-gray-200 rounded-lg shadow-sm p-4 group hover:shadow-lg hover:border-indigo-500 transition duration-200">
+                <div class="text-lg font-medium text-gray-900">{{ user.username }}</div>
+                
+                <!-- Follow button on hover -->
+                <button 
+                    class="hidden group-hover:inline-block absolute top-2 right-2 bg-indigo-500 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700 transition follow-button"
+                    data-type="user"
+                    data-id="{{ user.pk }}"
+                >
+                    Follow
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-gray-600">No users found.</div>
+    {% endif %}
+</div>
+
+<!-- Include the external JavaScript file -->
+<script src="{% static 'js/search.js' %}"></script>
 {% endblock %}
