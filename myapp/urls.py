@@ -2,10 +2,10 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from .views import (
     # Core Views
-    mypage,
-    modelsPage,
+    home_view,
+    models_overview,
     version,
-    register_user,
+    user_registration_view,
     registration_success,
     # Authentication
     # (Login and logout views are imported from django.contrib.auth.views)
@@ -27,12 +27,12 @@ from .views import (
     CollectionCreateView,
     CollectionUpdateView,
     CollectionDeleteView,
-    AddSetToCollectionView,
-    RemoveSetFromCollectionView,
+    AddSetToCollection,
+    RemoveSetFromCollection,
     # Search View
     SearchView,  # Updated import
     # Additional Views
-    BrowseFlashCardSetListView,
+    BrowseSetsView,
     # API Views
     FlashCardSetListCreateAPIView,
     FlashCardSetRetrieveUpdateDestroyAPIView,
@@ -52,7 +52,7 @@ from .views import (
 
 urlpatterns = [
     # Homepage
-    path('', mypage, name='home'),
+    path('', home_view, name='home'),
 
     # API Version
     path('api/', version, name='api-version'),
@@ -60,7 +60,7 @@ urlpatterns = [
     # Authentication
     path('login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path('register/', register_user, name='register'),
+    path('register/', user_registration_view, name='register'),
     path('registration-success/', registration_success, name='registration-success'),
 
     # Web Interface - Flashcard Set Management
@@ -85,14 +85,14 @@ urlpatterns = [
     path('collections/<int:pk>/edit/', CollectionUpdateView.as_view(), name='collection-edit'),
     path('collections/<int:pk>/delete/', CollectionDeleteView.as_view(), name='collection-delete'),
     # Add/Remove Sets to/from Collection
-    path('sets/<int:set_id>/add-to-collection/', AddSetToCollectionView.as_view(), name='add-set-to-collection'),
-    path('sets/<int:set_id>/remove-from-collection/', RemoveSetFromCollectionView.as_view(), name='remove-set-from-collection'),
+    path('sets/<int:set_id>/add-to-collection/', AddSetToCollection.as_view(), name='add-set-to-collection'),
+    path('sets/<int:set_id>/remove-from-collection/', RemoveSetFromCollection.as_view(), name='remove-set-from-collection'),
     path('sets/<int:set_id>/add_more/', FlashCardAddMoreView.as_view(), name='flashcard-add-more'),
 
 
     # Search
     path('search/', SearchView.as_view(), name='search'),  # Updated to use class-based view
-    path('browse/', BrowseFlashCardSetListView.as_view(), name='browse-sets'),
+    path('browse/', BrowseSetsView.as_view(), name='browse-sets'),
 
     # API Endpoints
     # API - General
