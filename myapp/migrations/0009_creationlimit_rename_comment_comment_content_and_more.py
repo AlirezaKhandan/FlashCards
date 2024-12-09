@@ -152,6 +152,6 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.DeleteModel(
-            name="DailyLimit",
+            name="daily_limit",
         ),
     ]

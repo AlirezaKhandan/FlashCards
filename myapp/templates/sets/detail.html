@@ -8,7 +8,6 @@
             <p><strong>Total Flashcards:</strong> {{ flashcards|length }}</p>
             <p><strong>Current Flashcard:</strong> <span id="flashcard-counter">1/{{ flashcards|length }}</span></p>
 
-
             <!-- Rating Display -->
             <div class="mt-4">
                 <h4 class="text-md font-semibold">Rating: {{ average_rating|floatformat:1 }} ⭐</h4>
@@ -31,7 +30,6 @@
                 {% endif %}
             </div>
 
-
             <!-- Add Flashcard Button -->
             {% if user == set.author %}
             <div class="mt-4">
@@ -46,8 +44,9 @@
         <h1 class="text-2xl font-bold mb-4">{{ set.name }}</h1>
 
         <!-- Flashcard Container -->
-        <div id="flashcard-container" class="my-4 p-6 border rounded-lg shadow-md">
-            <!-- Flashcard content will be injected here by JavaScript -->
+        <!-- Using data-is-author to pass author info into JS -->
+        <div id="flashcard-container" class="my-4 p-6 border rounded-lg shadow-md relative" data-is-author="{% if user == set.author %}true{% else %}false{% endif %}">
+            <!-- Flashcard content injected by JavaScript -->
         </div>
 
         <!-- Navigation Buttons -->
@@ -87,53 +86,89 @@
 {{ flashcards|json_script:"flashcards-data" }}
 
 <script>
-    // Parse the flashcards data safely
+    // Parse the flashcards data
     const flashcards = JSON.parse(document.getElementById('flashcards-data').textContent);
     let currentIndex = 0;
     let showingAnswer = false;
 
+    // Store if the current user is the author
+    const isAuthor = document.getElementById('flashcard-container').getAttribute('data-is-author') === 'true';
+
+    // Predefined URL patterns for edit/delete
+    const editUrlPattern = "{% url 'flashcard-edit' 99999 %}";
+    const deleteUrlPattern = "{% url 'flashcard-delete' 99999 %}";
+
     function renderFlashcard() {
-    const container = document.getElementById('flashcard-container');
-    if (flashcards.length === 0) {
-        container.innerHTML = `
-            <p>No flashcards in this set.</p>
-            <p>
-                <a href="{% url 'flashcard-add' set.id %}" class="text-blue-600 hover:underline">
-                    Add a flashcard
-                </a>.
-            </p>
+        const container = document.getElementById('flashcard-container');
+        if (flashcards.length === 0) {
+            container.innerHTML = `
+                <p>No flashcards in this set.</p>
+                <p>
+                    <a href="{% url 'flashcard-add' set.id %}" class="text-blue-600 hover:underline">
+                        Add a flashcard
+                    </a>.
+                </p>
+            `;
+            // Hide navigation buttons when there are no flashcards
+            document.getElementById('prev-button').style.display = 'none';
+            document.getElementById('show-answer-button').style.display = 'none';
+            document.getElementById('next-button').style.display = 'none';
+            document.getElementById('flashcard-counter').innerText = '0/0';
+            return;
+        }
+
+        const flashcard = flashcards[currentIndex];
+
+        // Determine difficulty color class
+        let difficultyColorClass;
+        switch (flashcard.difficulty) {
+            case 'Easy':
+                difficultyColorClass = 'text-green-500';
+                break;
+            case 'Medium':
+                difficultyColorClass = 'text-yellow-500';
+                break;
+            case 'Hard':
+                difficultyColorClass = 'text-red-500';
+                break;
+            default:
+                difficultyColorClass = 'text-gray-500';
+        }
+
+        // Construct the flashcard HTML
+        let flashcardHTML = `
+            <div class="relative">
+                <span class="absolute top-0 right-0 ${difficultyColorClass} font-bold px-2 py-1">
+                    ${flashcard.difficulty}
+                </span>
+                <h3 class="text-xl font-semibold mb-2">${showingAnswer ? 'Answer' : 'Question'}</h3>
+                <p class="text-lg mb-4">${showingAnswer ? flashcard.answer : flashcard.question}</p>
         `;
-        // Hide navigation buttons when there are no flashcards
-        document.getElementById('prev-button').style.display = 'none';
-        document.getElementById('show-answer-button').style.display = 'none';
-        document.getElementById('next-button').style.display = 'none';
+
+        // If user is author, add edit/delete links using dynamic IDs
+        if (isAuthor) {
+            const editUrl = editUrlPattern.replace('99999', flashcard.id);
+            const deleteUrl = deleteUrlPattern.replace('99999', flashcard.id);
+
+            flashcardHTML += `
+                <div class="flex space-x-4">
+                    <a href="${editUrl}" class="text-blue-500 hover:underline">Edit</a>
+                    <form action="${deleteUrl}" method="post" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="text-red-500 hover:underline">Delete</button>
+                    </form>
+                </div>
+            `;
+        }
+
+        flashcardHTML += `</div>`;
+
+        container.innerHTML = flashcardHTML;
+
         // Update flashcard counter
-        document.getElementById('flashcard-counter').innerText = '0/0';
-        return;
+        document.getElementById('flashcard-counter').innerText = (currentIndex + 1) + '/' + flashcards.length;
     }
 
-    const flashcard = flashcards[currentIndex];
-    container.innerHTML = `
-        <h3 class="text-xl font-semibold mb-2">${showingAnswer ? 'Answer' : 'Question'}</h3>
-        <p class="text-lg mb-4">${showingAnswer ? flashcard.answer : flashcard.question}</p>
-        {% if user == set.author %}
-            <div class="flex space-x-4">
-                <a href="{% url 'flashcard-edit' '0' %}".replace('0', flashcard.id) class="text-blue-500 hover:underline">
-                    Edit
-                </a>
-                <form action="{% url 'flashcard-delete' '0' %}".replace('0', flashcard.id) method="post" class="inline">
-                    {% csrf_token %}
-                    <button type="submit" class="text-red-500 hover:underline">Delete</button>
-                </form>
-            </div>
-        {% endif %}
-    `;
-    
-    // Update flashcard counter
-    document.getElementById('flashcard-counter').innerText = (currentIndex + 1) + '/' + flashcards.length;
-}
-
-    // Event listeners for navigation buttons
     document.getElementById('prev-button').addEventListener('click', () => {
         currentIndex = (currentIndex - 1 + flashcards.length) % flashcards.length;
         showingAnswer = false;

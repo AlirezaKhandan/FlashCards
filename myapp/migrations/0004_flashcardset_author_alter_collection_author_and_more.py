@@ -77,7 +77,7 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.CreateModel(
-            name="DailyLimit",
+            name="daily_limit",
             fields=[
                 (
                     "id",

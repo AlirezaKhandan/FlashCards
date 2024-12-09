@@ -94,9 +94,7 @@ urlpatterns = [
     path('search/', SearchView.as_view(), name='search'),  # Updated to use class-based view
     path('browse/', BrowseSetsView.as_view(), name='browse-sets'),
 
-    # API Endpoints
-    # API - General
-    path('api/', version, name='api-version'),
+    
 
     # API - Flashcard Sets
     path('api/sets/', FlashCardSetListCreateAPIView.as_view(), name='api-sets'),
