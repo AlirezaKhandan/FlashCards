@@ -1,3 +1,4 @@
+// search.js
 document.addEventListener('DOMContentLoaded', () => {
     // Handle Add buttons for sets and collections
     const addButtons = document.querySelectorAll('.add-button');
@@ -6,7 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const type = button.getAttribute('data-type'); // 'set' or 'collection'
             const id = button.getAttribute('data-id');
 
-            fetch(`/api/add/`, {
+            // Updated endpoint from '/api/add/' to '/sets/addtofav/' as you requested
+            fetch(`/sets/addtofav/`, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken'),
@@ -17,16 +19,16 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert(`${type.charAt(0).toUpperCase() + type.slice(1)} added successfully!`);
+                    alert(`${type.charAt(0).toUpperCase() + type.slice(1)} added successfully to favourites!`);
                 } else {
-                    alert(`Failed to add ${type}.`);
+                    alert(`Failed to add ${type}. Reason: ${data.error || 'Unknown error'}`);
                 }
             })
             .catch(err => console.error(err));
         });
     });
 
-    // Handle Follow buttons for users
+    // Follow buttons unchanged ...
     const followButtons = document.querySelectorAll('.follow-button');
     followButtons.forEach(button => {
         button.addEventListener('click', () => {
@@ -53,14 +55,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Utility function to get CSRF token from cookies for AJAX POST requests in Django
+// Utility function for CSRF token stays the same
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
         const cookies = document.cookie.split(';');
         for (let i=0; i < cookies.length; i++) {
             const cookie = cookies[i].trim();
-            // Does this cookie string begin with the name we want?
             if (cookie.substring(0, name.length + 1) === (name + '=')) {
                 cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                 break;

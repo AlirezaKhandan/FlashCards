@@ -6,6 +6,7 @@ from django.utils.timezone import now
 from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 
 # Choices for difficulty levels
 class Difficulty(models.TextChoices):
@@ -13,6 +14,11 @@ class Difficulty(models.TextChoices):
     MEDIUM = "Medium", "medium"
     HARD = "Hard", "hard"
 
+class Tag(models.Model):
+    name = models.CharField(max_length=50, unique=True, db_index=True)
+
+    def __str__(self):
+        return self.name
 
 class FlashCardSet(models.Model):
     """Model representing a set of flashcards."""
@@ -26,6 +32,13 @@ class FlashCardSet(models.Model):
         null=True,
         blank=True
     )
+    tags = models.ManyToManyField(Tag, related_name="sets", blank=True)
+
+    def clean(self):
+        super().clean()
+        # Ensure no more than 8 tags are associated
+        if self.tags.count() > 8:
+            raise ValidationError("A set cannot have more than 8 tags.")
 
     def __str__(self):
         return f"FlashCardSet: {self.name}"
@@ -33,8 +46,8 @@ class FlashCardSet(models.Model):
 
 class FlashCard(models.Model):
     """Model representing a single flashcard."""
-    question = models.CharField(max_length=255, default="Default Question")
-    answer = models.CharField(max_length=255, default="Default Answer")
+    question = models.CharField(max_length=255, default="")
+    answer = models.CharField(max_length=255, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     difficulty = models.CharField(max_length=10, choices=Difficulty.choices, null=True,blank=True)
     set = models.ForeignKey(FlashCardSet, related_name="cards", on_delete=models.CASCADE)
@@ -60,6 +73,24 @@ class Collection(models.Model):
     def __str__(self):
         return f"Collection '{self.name}' by {self.author.username}"
 
+
+# A generic UserFavorite model to store user favorites (sets, collections, etc.)
+class UserFavorite(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'content_type', 'object_id']),
+        ]
+        unique_together = ('user', 'content_type', 'object_id')
+
+    def __str__(self):
+        return f"{self.user.username}'s favorite: {self.content_object}"
+    
 
 class Comment(models.Model):
     """Model representing comments on a flashcard set or collection."""

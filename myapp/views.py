@@ -16,8 +16,8 @@ from rest_framework.decorators import api_view
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import Throttled
-
-from .models import FlashCardSet, FlashCard, Comment, Collection, User, Rating
+from rest_framework.permissions import IsAuthenticated
+from .models import FlashCardSet, FlashCard, Comment, Collection, User, Rating, UserFavorite, Tag
 from .serializers import FlashCardSetSerializer, FlashCardSerializer, CommentSerializer, CollectionSerializer, UserSerializer
 from .forms import FlashCardSetForm, FlashCardForm, CustomUserCreationForm, CollectionForm
 
@@ -333,12 +333,18 @@ class SearchView(LoginRequiredMixin, ListView):
     context_object_name = 'results'
 
     def get_queryset(self):
-        # By default, we'll treat `results` as flashcard sets (this comes from the ListView)
+        # By default, we'll treat `results` as flashcard sets
         query = self.request.GET.get('q')
         if query:
-            return FlashCardSet.objects.filter(
-                Q(name__icontains=query) | Q(cards__question__icontains=query)
+            # Find tags that match the query
+            matching_tags = Tag.objects.filter(name__icontains=query)
+            # Sets that match by name, card question or tags
+            sets_query = FlashCardSet.objects.filter(
+                Q(name__icontains=query) |
+                Q(cards__question__icontains=query) |
+                Q(tags__in=matching_tags)
             ).distinct()
+            return sets_query
         return FlashCardSet.objects.none()
 
     def get_context_data(self, **kwargs):
@@ -347,7 +353,7 @@ class SearchView(LoginRequiredMixin, ListView):
         if query:
             # Search users by username
             users = User.objects.filter(username__icontains=query)
-            # Search collections by name or comment field if exists
+            # Search collections by name
             collections = Collection.objects.filter(name__icontains=query)
 
             context['users'] = users
@@ -377,13 +383,19 @@ class FlashCardSetUpdateView(LoginRequiredMixin, UpdateView):
 
 # Lists all collections belonging to the current user.
 class CollectionListView(LoginRequiredMixin, ListView):
-    """Display all collections for the logged-in user."""
     model = Collection
     template_name = 'collections/list.html'
     context_object_name = 'collections'
 
     def get_queryset(self):
         return Collection.objects.filter(author=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        set_ct = ContentType.objects.get_for_model(FlashCardSet)
+        favourites_count = UserFavorite.objects.filter(user=self.request.user, content_type=set_ct).count()
+        context['favourites_count'] = favourites_count
+        return context
 
 # Creates a new collection for the current user.
 class CollectionCreateView(LoginRequiredMixin, CreateView):
@@ -404,6 +416,14 @@ class CollectionDeleteView(LoginRequiredMixin, DeleteView):
     
     model = Collection
     template_name = 'collections/delete.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Count how many sets the user has favorited
+        set_ct = ContentType.objects.get_for_model(FlashCardSet)
+        favourites_count = UserFavorite.objects.filter(user=self.request.user, content_type=set_ct).count()
+        context['favourites_count'] = favourites_count
+        return context
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -709,4 +729,60 @@ class FlashCardAddMoreView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['pk'])
         context['set'] = flashcard_set
+        return context
+    
+
+
+
+class AddToFavoritesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Expects JSON: { "type": "<set|collection>", "id": <int> }
+        Adds the specified item to the user's favorites if not already there.
+        """
+        item_type = request.data.get('type')
+        item_id = request.data.get('id')
+        if not item_type or not item_id:
+            return Response({'success': False, 'error': 'Missing type or id'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Determine the model based on type
+        if item_type == 'set':
+            model = FlashCardSet
+        elif item_type == 'collection':
+            model = Collection
+        else:
+            return Response({'success': False, 'error': 'Invalid type'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get object
+        obj = get_object_or_404(model, pk=item_id)
+        
+        # Check if already in favorites
+        content_type = ContentType.objects.get_for_model(model)
+        favorite_exists = UserFavorite.objects.filter(
+            user=request.user, content_type=content_type, object_id=obj.id
+        ).exists()
+
+        if favorite_exists:
+            return Response({'success': False, 'error': 'Already in favorites'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Add to favorites
+        UserFavorite.objects.create(user=request.user, content_type=content_type, object_id=obj.id)
+        return Response({'success': True}, status=status.HTTP_201_CREATED)
+    
+
+class UserFavouritesView(LoginRequiredMixin, TemplateView):
+    template_name = 'sets/favourites.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from django.contrib.contenttypes.models import ContentType
+        from .models import UserFavorite
+        
+        set_ct = ContentType.objects.get_for_model(FlashCardSet)
+        favourite_entries = UserFavorite.objects.filter(user=self.request.user, content_type=set_ct)
+        set_ids = favourite_entries.values_list('object_id', flat=True)
+        favourite_sets = FlashCardSet.objects.filter(pk__in=set_ids)
+        context['favourite_sets'] = favourite_sets
         return context

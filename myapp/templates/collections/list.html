@@ -3,17 +3,20 @@
 {% block content %}
 <h2 class="text-2xl font-bold mb-4 text-center">Your Collections</h2>
 
-<!-- Center the "Create New Collection" Button -->
-<div class="flex justify-center mb-6">
+<!-- Favourites and New Collection Buttons -->
+<div class="flex justify-center mb-6 space-x-6">
     <a href="{% url 'collection-add' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">
         Create New Collection
+    </a>
+    <a href="{% url 'user-favourites' %}" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-700">
+        Favourites ({{ favourites_count }} sets)
     </a>
 </div>
 
 {% if collections %}
     <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for collection in collections %}
-        <div class="bg-white border rounded p-4 shadow">
+        <div class="bg-white border rounded p-4 shadow hover:shadow-lg hover:border-indigo-500 transition duration-200">
             <h3 class="text-xl font-semibold mb-2">{{ collection.name }}</h3>
             <p class="text-gray-600 mb-4">{{ collection.description }}</p>
             <p class="text-sm text-gray-500 mb-4">Created on {{ collection.created_at|date:"F j, Y" }}</p>
@@ -29,7 +32,7 @@
             </ul>
             <div class="mt-4 flex space-x-2">
                 <a href="{% url 'collection-edit' collection.pk %}" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-700">Edit</a>
-                <form action="{% url 'collection-delete' collection.pk %}" method="post">
+                <form action="{% url 'collection-delete' collection.pk %}" method="post" class="inline">
                     {% csrf_token %}
                     <button type="submit" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-700">Delete</button>
                 </form>
@@ -38,6 +41,6 @@
         {% endfor %}
     </div>
 {% else %}
-    <p class="mt-4 text-center">You have no collections yet.</p>
+    <p class="mt-4 text-center text-gray-600">You have no collections yet.</p>
 {% endif %}
 {% endblock %}

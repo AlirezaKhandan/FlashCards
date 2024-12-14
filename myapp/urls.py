@@ -54,6 +54,8 @@ from .views import (
     UserCollectionRetrieveUpdateDestroyAPIView,
     CollectionListCreateAPIView,
     RandomCollectionRedirectView,
+    AddToFavoritesView,
+    UserFavouritesView,
 
     # Rating
     RateItemView,
@@ -82,6 +84,8 @@ urlpatterns = [
     path('cards/<int:pk>/edit/', FlashCardUpdateView.as_view(), name='flashcard-edit'),
     path('cards/<int:pk>/delete/', FlashCardDeleteView.as_view(), name='flashcard-delete'),
     path('sets/<int:pk>/add_more/', FlashCardAddMoreView.as_view(), name='flashcard-add-more'),
+    path('favorites/', UserFavouritesView.as_view(), name='user-favourites'),
+
 
     # Web Interface - Comments
     path('sets/<int:pk>/comments/add/', CommentCreateView.as_view(), name='comment-add'),
@@ -94,6 +98,7 @@ urlpatterns = [
     path('collections/<int:pk>/delete/', CollectionDeleteView.as_view(), name='collection-delete'),
     path('sets/<int:pk>/add-to-collection/', AddSetToCollection.as_view(), name='add-set-to-collection'),
     path('sets/<int:pk>/remove-from-collection/', RemoveSetFromCollection.as_view(), name='remove-set-from-collection'),
+    path('sets/addtofav/', AddToFavoritesView.as_view(), name='api-add-favorite'),
 
     # Search and Browse
     path('search/', SearchView.as_view(), name='search'),
