@@ -37,7 +37,7 @@ class FlashCardSet(models.Model):
     def clean(self):
         super().clean()
         # Ensure no more than 8 tags are associated
-        if self.tags.count() > 8:
+        if self.pk and self.tags.count() > 8:
             raise ValidationError("A set cannot have more than 8 tags.")
 
     def __str__(self):
