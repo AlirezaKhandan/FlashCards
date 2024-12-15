@@ -169,23 +169,17 @@ class FlashCardSetDetailView(LoginRequiredMixin, DetailView):
      # Gathers flashcards, comments, and rating info for display
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Prepare flashcards data for JSON serialization
-        context['flashcards'] = list(self.object.cards.values('id', 'question', 'answer'))
+        # Retrieve flashcards with 'id', 'question', 'answer', and now 'difficulty' to ensure the difficulty level is available in the JSON data
+        context['flashcards'] = list(self.object.cards.values('id', 'question', 'answer', 'difficulty'))
 
-        # Comments
+        # Retrieve comments for display, ensuring that comments related to this set are shown
         content_type = ContentType.objects.get_for_model(FlashCardSet)
-        comments = Comment.objects.filter(
-            content_type=content_type,
-            object_id=self.object.id
-        ).order_by('-created_at')
+        comments = Comment.objects.filter(content_type=content_type, object_id=self.object.id).order_by('-created_at')
         context['comments'] = comments
         context['comment_form'] = CommentForm()
 
-        # Average Rating
-        average_rating = Rating.objects.filter(
-            content_type=content_type,
-            object_id=self.object.id
-        ).aggregate(Avg('score'))['score__avg'] or 0
+        # Calculate the average rating to provide user feedback on overall quality
+        average_rating = Rating.objects.filter(content_type=content_type, object_id=self.object.id).aggregate(Avg('score'))['score__avg'] or 0
         context['average_rating'] = round(average_rating, 1)
 
         return context
@@ -378,7 +372,7 @@ class FlashCardSetUpdateView(LoginRequiredMixin, UpdateView):
         return FlashCardSet.objects.filter(author=self.request.user)
 
     def get_success_url(self):
-        return reverse_lazy('flashcard-set-detail', kwargs={'pk': self.object.pk})
+        return reverse_lazy('flashcard-set-list')
 
 
 # Lists all collections belonging to the current user.

@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const type = button.getAttribute('data-type'); // 'set' or 'collection'
             const id = button.getAttribute('data-id');
 
-            // Updated endpoint from '/api/add/' to '/sets/addtofav/' as you requested
+            
             fetch(`/sets/addtofav/`, {
                 method: 'POST',
                 headers: {

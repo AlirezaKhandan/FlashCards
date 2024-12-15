@@ -1,27 +1,68 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
 <h2 class="text-2xl font-bold mb-4">Edit Flashcard Set</h2>
 
-<div class="max-w-md mx-auto">
-    <form method="post" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <div class="flex items-center justify-between">
-            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
-                Save Changes
-            </button>
-        </div>
-    </form>
-
-    <!-- Add to Collection Section -->
-    <div class="mt-6">
-        <h3 class="text-xl font-semibold mb-2">Manage Collections</h3>
-        <!-- Add to Collection Form -->
-        <form action="{% url 'add-set-to-collection' object.pk %}" method="post" class="mb-4">
+<div class="flex flex-col lg:flex-row lg:space-x-6">
+    <!-- Left Column: Set Name and Tags -->
+    <div class="lg:w-1/2 bg-white shadow-md rounded p-6 mb-6 lg:mb-0">
+        <form method="post" id="flashcard-set-form">
             {% csrf_token %}
-            <label for="collection_id" class="block mb-2">Add to Collection:</label>
-            <select name="collection_id" id="collection_id" class="border border-gray-300 rounded px-2 py-1 mb-4 w-full">
+            {{ form.non_field_errors }}
+
+            <!-- Name Field -->
+            <div class="mb-6">
+                <label for="{{ form.name.id_for_label }}" class="block mb-2 font-semibold">Set Name</label>
+                {{ form.name }}
+                {{ form.name.errors }}
+            </div>
+
+            <!-- Tags Section -->
+            <div class="mb-6">
+                <label class="block mb-2 font-semibold">Tags</label>
+                <p class="text-sm text-gray-600 mb-2">
+                    Add up to 8 tags. Press "Add Tag" after typing a tag name.
+                </p>
+                
+                <!-- Tag Input and Add Button -->
+                <div class="flex space-x-2 mb-4">
+                    <input type="text" id="tag-input" class="border border-gray-300 rounded px-3 py-2 flex-1" placeholder="Type a tag and press Add Tag"/>
+                    <button type="button" id="add-tag-button" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        Add Tag
+                    </button>
+                </div>
+
+                <!-- Tag Chips Container -->
+                <div id="tags-container" class="flex flex-wrap gap-2"></div>
+
+                <!-- Hidden field for tags (now hidden via CSS, not class) -->
+                <style>
+                #id_tags {
+                  display: none;
+                }
+                </style>
+                {{ form.tags }}
+                {{ form.tags.errors }}
+            </div>
+
+            <div class="flex items-center justify-between mt-4">
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Right Column: Manage Collections and Other Actions -->
+    <div class="lg:w-1/2 bg-white shadow-md rounded p-6">
+        <h3 class="text-xl font-semibold mb-4">Manage Collections</h3>
+
+        <!-- Add to Collection Form -->
+        <form action="{% url 'add-set-to-collection' object.pk %}" method="post" class="mb-6">
+            {% csrf_token %}
+            <label for="collection_id" class="block mb-2 font-semibold">Add to Collection:</label>
+            <select name="collection_id" id="collection_id" class="border border-gray-300 rounded px-2 py-2 mb-4 w-full">
                 {% with collections=user.collections.all %}
                     {% if collections %}
                         {% for collection in collections %}
@@ -30,7 +71,7 @@
                             {% endif %}
                         {% endfor %}
                     {% else %}
-                        <option disabled>No collections available. <a href="{% url 'collection-add' %}" class="text-blue-500">Create one now</a>.</option>
+                        <option disabled>No collections available.</option>
                     {% endif %}
                 {% endwith %}
             </select>
@@ -42,8 +83,8 @@
         <!-- Remove from Collection Form -->
         <form action="{% url 'remove-set-from-collection' object.pk %}" method="post">
             {% csrf_token %}
-            <label for="remove_collection_id" class="block mb-2">Remove from Collection:</label>
-            <select name="collection_id" id="remove_collection_id" class="border border-gray-300 rounded px-2 py-1 mb-4 w-full">
+            <label for="remove_collection_id" class="block mb-2 font-semibold">Remove from Collection:</label>
+            <select name="collection_id" id="remove_collection_id" class="border border-gray-300 rounded px-2 py-2 mb-4 w-full">
                 {% with collections=user.collections.all %}
                     {% if collections %}
                         {% for collection in collections %}
@@ -62,4 +103,29 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/tag_manager.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const initialTags = [];
+        const tagSelect = document.querySelector('#id_tags');
+        // Gather initially selected tags from the select element
+        for (let option of tagSelect.options) {
+            if (option.selected) {
+                initialTags.push(option.textContent.trim());
+            }
+        }
+
+        TagManager.init({
+            inputSelector: '#tag-input',
+            addButtonSelector: '#add-tag-button',
+            containerSelector: '#tags-container',
+            hiddenSelectSelector: '#id_tags',
+            initialTags: initialTags,
+            maxTags: 8
+        });
+    });
+</script>
 {% endblock %}
