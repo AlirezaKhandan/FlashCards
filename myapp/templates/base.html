@@ -53,7 +53,18 @@
             {% endif %}
         </div>
     </nav>
-
+    
+    {% if messages %}
+    <div class="w-full max-w-md mx-auto mt-4">
+        {% for message in messages %}
+            <div class="p-3 mb-3 rounded
+            {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
     <!-- Content Block -->
     <div class="px-6 py-6">
         {% block content %}

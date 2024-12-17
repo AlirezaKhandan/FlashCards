@@ -3,6 +3,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
+from django.utils.timezone import timedelta
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView, TemplateView
 from django.views import View  # Import View for the create view
@@ -128,6 +129,45 @@ def within_limit(user_daily, creation_limit, item_type):
                            f"You can only create {remaining} more {item_type}(s) this hour.")
         return True, warning_msg
 
+
+
+
+def can_create_item(user, daily_field, limit_field, item_type_str):
+    """
+    Check if the user can create one more item (flashcard/set/collection).
+    user: current user
+    daily_field: str, name of the UserDailyCreation field ('sets_created', 'flashcards_created', 'collections_created')
+    limit_field: str, name of the CreationLimit field ('daily_set_limit', 'daily_flashcard_limit', 'daily_collection_limit')
+    item_type_str: str, human-readable type name ('set', 'collection', 'flashcard')
+
+    Returns True if can create, False if limit exceeded.
+    Also sets warning or error messages using Django messages.
+    """
+    today = timezone.now().date()
+    user_daily, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
+    creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
+
+    daily_created = getattr(user_daily, daily_field)
+    limit = getattr(creation_limit, limit_field)
+
+    # If limit is 0 or None, treat as no limit
+    if limit == 0:
+        return True
+
+    # Check if limit exceeded
+    if daily_created >= limit:
+        messages.error(user, f"You have reached the daily {item_type_str} creation limit ({limit}).")
+        return False
+
+    # If halfway or beyond the limit, show a warning
+    if daily_created >= limit / 2:
+        left = limit - daily_created
+        messages.warning(user, f"You are nearing your daily {item_type_str} creation limit. Only {left} {item_type_str}(s) left today.")
+
+    return True
+
+
+
 # Flashcard Set Views
 
 
@@ -152,29 +192,39 @@ class FlashCardSetCreateView(LoginRequiredMixin, CreateView):
     model = FlashCardSet
     form_class = FlashCardSetForm
     template_name = 'sets/add.html'
-    success_url = reverse_lazy('flashcard-set-list')
 
     def form_valid(self, form):
-        user = self.request.user
-        user_daily, _ = UserDailyCreation.objects.get_or_create(user=user)
-        reset_limits_if_needed(user_daily)
-        creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
+        # AJAX request expected
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            today = timezone.now().date()
+            user_daily, _ = UserDailyCreation.objects.get_or_create(user=self.request.user, date=today)
+            creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
 
-        allowed, warning_msg = within_limit(user_daily, creation_limit, 'set')
-        if not allowed:
-            return JsonResponse({'error': True, 'detail': 'Daily set limit exceeded.'}, status=429)
+            # Check limit for sets
+            if user_daily.sets_created >= creation_limit.daily_set_limit and not self.request.user.is_superuser:
+                next_reset = (timezone.now() + timedelta(hours=1)).strftime("%H:%M %p")
+                return JsonResponse({'detail': f"You have reached your daily set creation limit ({creation_limit.daily_set_limit}). You can create more sets after {next_reset}."},
+                                    status=429)
+            
+            # Check if approaching limit (e.g., half the limit left)
+            approaching_limit = (creation_limit.daily_set_limit - user_daily.sets_created) <= (creation_limit.daily_set_limit // 2)
 
-        # Create the set
-        form.instance.author = user
-        response = super().form_valid(form)
-        user_daily.sets_created += 1
-        user_daily.save()
+            self.object = form.save(commit=False)
+            self.object.author = self.request.user
+            self.object.save()
+            user_daily.sets_created += 1
+            user_daily.save()
 
-        # Include warning in the response if any
-        resp_data = {'error': False, 'detail': 'Set created successfully.'}
-        if warning_msg:
-            resp_data['warning'] = warning_msg
-        return JsonResponse(resp_data, status=200)
+            data = {'detail': "Created successfully!"}
+            if approaching_limit and user_daily.sets_created < creation_limit.daily_set_limit:
+                left = creation_limit.daily_set_limit - user_daily.sets_created
+                data['warning'] = f"You are approaching your daily set limit. Only {left} set(s) left before the next reset."
+
+            return JsonResponse(data, status=200)
+        else:
+            # Non-AJAX fallback if needed
+            return super().form_valid(form)
+
 
 
 
@@ -251,29 +301,43 @@ class FlashCardCreateView(LoginRequiredMixin, CreateView):
     form_class = FlashCardForm
     template_name = 'cards/add.html'
 
-    def form_valid(self, form):
-        user = self.request.user
-        user_daily, _ = UserDailyCreation.objects.get_or_create(user=user)
-        reset_limits_if_needed(user_daily)
-        creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
         flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['pk'])
+        context['set'] = flashcard_set
+        return context
 
-        allowed, warning_msg = within_limit(user_daily, creation_limit, 'flashcard')
-        if not allowed:
-            return JsonResponse({'error': True, 'detail': 'Daily flashcard limit exceeded.'}, status=429)
+    def form_valid(self, form):
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            user = self.request.user
+            today = timezone.now().date()
+            user_daily_creation, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
+            creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
+            flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['pk'])
 
-        form.instance.set = flashcard_set
-        response = super().form_valid(form)
-        user_daily.flashcards_created += 1
-        user_daily.save()
+            # Check limit
+            if user_daily_creation.flashcards_created >= creation_limit.daily_flashcard_limit and not user.is_superuser:
+                next_reset = (timezone.now() + timedelta(hours=1)).strftime("%H:%M %p")
+                return JsonResponse({'detail': f"You have reached your daily flashcard creation limit ({creation_limit.daily_flashcard_limit}). You can create more flashcards after {next_reset}."},
+                                    status=429)
 
-        resp_data = {'error': False, 'detail': 'Flashcard created successfully.'}
-        if warning_msg:
-            resp_data['warning'] = warning_msg
-        return JsonResponse(resp_data, status=200)
+            approaching_limit = (creation_limit.daily_flashcard_limit - user_daily_creation.flashcards_created) <= (creation_limit.daily_flashcard_limit // 2)
 
-    def get_success_url(self):
-        return reverse_lazy('flashcard-add-more', kwargs={'pk': self.kwargs['pk']})
+            self.object = form.save(commit=False)
+            self.object.set = flashcard_set  # Ensure set is assigned
+            self.object.save()
+            user_daily_creation.flashcards_created += 1
+            user_daily_creation.save()
+
+            data = {'detail': "Created successfully!"}
+            if approaching_limit and user_daily_creation.flashcards_created < creation_limit.daily_flashcard_limit:
+                left = creation_limit.daily_flashcard_limit - user_daily_creation.flashcards_created
+                data['warning'] = f"You are approaching your daily flashcard limit. Only {left} flashcard(s) left before the next reset."
+
+            return JsonResponse(data, status=200)
+        else:
+            return super().form_valid(form)
+
 
 
 # Allows editing an existing flashcard.
@@ -492,27 +556,34 @@ class CollectionCreateView(LoginRequiredMixin, CreateView):
     template_name = 'collections/create.html'
 
     def form_valid(self, form):
-        user = self.request.user
-        user_daily, _ = UserDailyCreation.objects.get_or_create(user=user)
-        reset_limits_if_needed(user_daily)
-        creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
+        # AJAX request expected
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            today = timezone.now().date()
+            user_daily, _ = UserDailyCreation.objects.get_or_create(user=self.request.user, date=today)
+            creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
 
-        allowed, warning_msg = within_limit(user_daily, creation_limit, 'collection')
-        if not allowed:
-            return JsonResponse({'error': True, 'detail': 'Daily collection limit exceeded.'}, status=429)
+            # Check limit for collections
+            if user_daily.collections_created >= creation_limit.daily_collection_limit and not self.request.user.is_superuser:
+                next_reset = (timezone.now() + timedelta(hours=1)).strftime("%H:%M %p")
+                return JsonResponse({'detail': f"You have reached your daily collection creation limit ({creation_limit.daily_collection_limit}). You can create more collections after {next_reset}."},
+                                    status=429)
 
-        form.instance.author = user
-        response = super().form_valid(form)
-        user_daily.collections_created += 1
-        user_daily.save()
+            approaching_limit = (creation_limit.daily_collection_limit - user_daily.collections_created) <= (creation_limit.daily_collection_limit // 2)
 
-        resp_data = {'error': False, 'detail': 'Collection created successfully.'}
-        if warning_msg:
-            resp_data['warning'] = warning_msg
-        return JsonResponse(resp_data, status=200)
+            self.object = form.save(commit=False)
+            self.object.author = self.request.user
+            self.object.save()
+            user_daily.collections_created += 1
+            user_daily.save()
 
-    def get_success_url(self):
-        return reverse_lazy('collection-list')
+            data = {'detail': "Created successfully!"}
+            if approaching_limit and user_daily.collections_created < creation_limit.daily_collection_limit:
+                left = creation_limit.daily_collection_limit - user_daily.collections_created
+                data['warning'] = f"You are approaching your daily collection limit. Only {left} collection(s) left before the next reset."
+
+            return JsonResponse(data, status=200)
+        else:
+            return super().form_valid(form)
 
 # Deletes a collection.
 # If `delete_sets` is checked, deletes all sets in the collection too.
