@@ -36,7 +36,6 @@ from .views import (
 
     # Search and Browse
     SearchView,
-    BrowseSetsView,
 
     # Additional Web View
     FlashCardAddMoreView,
@@ -102,7 +101,6 @@ urlpatterns = [
 
     # Search and Browse
     path('search/', SearchView.as_view(), name='search'),
-    path('browse/', BrowseSetsView.as_view(), name='browse-sets'),
 
     # API Version
     path('api/', version, name='api-version'),

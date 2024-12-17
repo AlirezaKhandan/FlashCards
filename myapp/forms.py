@@ -3,18 +3,13 @@ from .models import FlashCardSet, FlashCard, Collection, Comment, Tag
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-
 class FlashCardSetForm(forms.ModelForm):
-    tags = forms.ModelMultipleChoiceField(
-        queryset=Tag.objects.all(),
-        required=False,
-        widget=forms.SelectMultiple(attrs={'class': 'hidden'}), # hide the field
-        label="Tags"
-    )
+    
+    tag_names = forms.CharField(required=False, widget=forms.HiddenInput())
 
     class Meta:
         model = FlashCardSet
-        fields = ['name', 'tags']
+        fields = ['name']  
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'w-full px-3 py-2 border rounded',
@@ -23,16 +18,13 @@ class FlashCardSetForm(forms.ModelForm):
         }
         labels = {
             'name': 'Set Name',
-            'tags': 'Select Tags (Up to 8)'
         }
 
     def clean(self):
         cleaned_data = super().clean()
-        selected_tags = cleaned_data.get('tags', [])
-        if len(selected_tags) > 8:
-            self.add_error('tags', "You can select up to 8 tags.")
-        return cleaned_data
         
+        return cleaned_data
+
 
 class FlashCardForm(forms.ModelForm):
     class Meta:
@@ -92,7 +84,6 @@ class CollectionForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': 'border border-gray-300 rounded px-3 py-2 w-full'}),
             'description': forms.Textarea(attrs={'class': 'border border-gray-300 rounded px-3 py-2 w-full'}),
         }
-
 
 
 class CommentForm(forms.ModelForm):

@@ -4,24 +4,82 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
     <h1 class="text-2xl font-bold text-gray-800 mb-4">Search Results for "{{ query }}"</h1>
 
-    <!-- Flashcard Sets Section -->
-    <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Flashcard Sets</h2>
-    {% if results %}
-        <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {% for set in results %}
-            <div class="relative bg-white border border-gray-200 rounded-lg shadow-sm p-4 group hover:shadow-lg hover:border-indigo-500 transition duration-200">
-                <div class="text-lg font-medium text-gray-900">{{ set.name }}</div>
-                <div class="text-sm text-gray-600">By {{ set.author.username }}</div>
-                <a href="{% url 'flashcard-set-detail' set.pk %}" class="text-indigo-600 hover:text-indigo-800 text-sm mt-2 inline-block">View Details</a>
+    <!-- Your Materials -->
+    <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Your Materials</h2>
+    {% if your_materials.sets or your_materials.collections %}
+        <!-- Your Sets -->
+        {% if your_materials.sets %}
+            <h3 class="text-lg font-medium text-gray-600 mb-2">Your Sets</h3>
+            <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-6">
+                {% for set in your_materials.sets %}
+                <div class="relative bg-white border border-gray-200 rounded-lg shadow-sm p-4 group hover:shadow-lg hover:border-indigo-500 transition duration-200">
+                    <div class="text-lg font-medium text-gray-900">{{ set.object.name }}</div>
+                    <div class="text-sm text-gray-600">Created on {{ set.object.createdAt|date:"F j, Y" }}</div>
 
-                <!-- Add button on hover -->
-                <button 
-                    class="hidden group-hover:inline-block absolute top-2 right-2 bg-indigo-500 text-white px-3 py-1 rounded text-sm hover:bg-indigo-600 transition add-button"
-                    data-type="set"
-                    data-id="{{ set.pk }}"
-                >
-                    Add
-                </button>
+                    <!-- Tags -->
+                    {% if set.object.tags.all %}
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            {% for tag in set.object.tags.all %}
+                                <span class="bg-gray-200 text-gray-800 text-sm rounded px-2 py-1">{{ tag.name }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <!-- Rating -->
+                    <p class="text-sm mt-2">Rating: {{ set.rating }}</p>
+
+                    <a href="{% url 'flashcard-set-detail' set.object.pk %}" class="text-indigo-600 hover:text-indigo-800 text-sm mt-2 inline-block">View Details</a>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-gray-600">You have no sets matching "{{ query }}"</p>
+        {% endif %}
+
+        <!-- Your Collections -->
+        {% if your_materials.collections %}
+            <h3 class="text-lg font-medium text-gray-600 mb-2">Your Collections</h3>
+            <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-6">
+                {% for collection in your_materials.collections %}
+                <div class="relative bg-white border border-gray-200 rounded-lg shadow-sm p-4 group hover:shadow-lg hover:border-indigo-500 transition duration-200">
+                    <div class="text-lg font-medium text-gray-900">{{ collection.name }}</div>
+                    <div class="text-sm text-gray-600">Created on {{ collection.created_at|date:"F j, Y" }}</div>
+                    <a href="#" class="text-indigo-600 hover:text-indigo-800 text-sm mt-2 inline-block">View Collection</a>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- Only show no collections if there were no sets as well -->
+            {% if not your_materials.sets %}
+                <p class="text-gray-600">You have no collections matching "{{ query }}"</p>
+            {% endif %}
+        {% endif %}
+    {% else %}
+        <p class="text-gray-600">You have no materials matching "{{ query }}"</p>
+    {% endif %}
+
+    <!-- All Sets (not yours) -->
+    <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-3">All Sets</h2>
+    {% if sets %}
+        <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {% for set in sets %}
+            <div class="relative bg-white border border-gray-200 rounded-lg shadow-sm p-4 group hover:shadow-lg hover:border-indigo-500 transition duration-200">
+                <div class="text-lg font-medium text-gray-900">{{ set.object.name }}</div>
+                <div class="text-sm text-gray-600">Created by {{ set.object.author.username }} on {{ set.object.createdAt|date:"F j, Y" }}</div>
+
+                <!-- Tags -->
+                {% if set.object.tags.all %}
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        {% for tag in set.object.tags.all %}
+                            <span class="bg-gray-200 text-gray-800 text-sm rounded px-2 py-1">{{ tag.name }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Rating -->
+                <p class="text-sm mt-2">Rating: {{ set.rating }}</p>
+
+                <a href="{% url 'flashcard-set-detail' set.object.pk %}" class="text-indigo-600 hover:text-indigo-800 text-sm mt-2 inline-block">View Details</a>
             </div>
             {% endfor %}
         </div>
@@ -29,25 +87,15 @@
         <div class="text-gray-600">No flashcard sets found.</div>
     {% endif %}
 
-    <!-- Collections Section -->
-    <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Collections</h2>
+    <!-- All Collections (not yours) -->
+    <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-3">All Collections</h2>
     {% if collections %}
         <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {% for collection in collections %}
             <div class="relative bg-white border border-gray-200 rounded-lg shadow-sm p-4 group hover:shadow-lg hover:border-indigo-500 transition duration-200">
                 <div class="text-lg font-medium text-gray-900">{{ collection.name }}</div>
                 <div class="text-sm text-gray-600">By {{ collection.author.username }}</div>
-                <!-- Link to collection detail if it exists -->
-                <a href="{% url 'api-user-collection-detail' userId=collection.author.id collectionId=collection.pk %}" class="text-indigo-600 hover:text-indigo-800 text-sm mt-2 inline-block">View Collection</a>
-
-                <!-- Add button on hover -->
-                <button 
-                    class="hidden group-hover:inline-block absolute top-2 right-2 bg-indigo-500 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700 transition add-button"
-                    data-type="collection"
-                    data-id="{{ collection.pk }}"
-                >
-                    Add
-                </button>
+                <a href="#" class="text-indigo-600 hover:text-indigo-800 text-sm mt-2 inline-block">View Collection</a>
             </div>
             {% endfor %}
         </div>
@@ -55,22 +103,25 @@
         <div class="text-gray-600">No collections found.</div>
     {% endif %}
 
-    <!-- Users Section -->
+    <!-- Tags -->
+    <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Tags</h2>
+    {% if tags %}
+        <div class="flex flex-wrap gap-3">
+            {% for tag in tags %}
+                <span class="bg-gray-200 text-gray-800 text-sm rounded px-2 py-1">{{ tag.name }}</span>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-gray-600">No tags found matching "{{ query }}".</div>
+    {% endif %}
+
+    <!-- Users -->
     <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Users</h2>
     {% if users %}
         <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {% for user in users %}
             <div class="relative bg-white border border-gray-200 rounded-lg shadow-sm p-4 group hover:shadow-lg hover:border-indigo-500 transition duration-200">
                 <div class="text-lg font-medium text-gray-900">{{ user.username }}</div>
-                
-                <!-- Follow button on hover -->
-                <button 
-                    class="hidden group-hover:inline-block absolute top-2 right-2 bg-indigo-500 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700 transition follow-button"
-                    data-type="user"
-                    data-id="{{ user.pk }}"
-                >
-                    Follow
-                </button>
             </div>
             {% endfor %}
         </div>
@@ -78,7 +129,4 @@
         <div class="text-gray-600">No users found.</div>
     {% endif %}
 </div>
-
-<!-- Include the external JavaScript file -->
-<script src="{% static 'js/search.js' %}"></script>
 {% endblock %}

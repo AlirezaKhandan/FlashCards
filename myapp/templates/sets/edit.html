@@ -36,14 +36,8 @@
                 <!-- Tag Chips Container -->
                 <div id="tags-container" class="flex flex-wrap gap-2"></div>
 
-                <!-- Hidden field for tags (now hidden via CSS, not class) -->
-                <style>
-                #id_tags {
-                  display: none;
-                }
-                </style>
-                {{ form.tags }}
-                {{ form.tags.errors }}
+                <!-- Hidden field for new tag logic -->
+                {{ form.tag_names }}
             </div>
 
             <div class="flex items-center justify-between mt-4">
@@ -107,25 +101,23 @@
 
 {% block scripts %}
 <script src="{% static 'js/tag_manager.js' %}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const initialTags = [];
-        const tagSelect = document.querySelector('#id_tags');
-        // Gather initially selected tags from the select element
-        for (let option of tagSelect.options) {
-            if (option.selected) {
-                initialTags.push(option.textContent.trim());
-            }
-        }
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const initialTags = [];
+            {% if object.tags.all %}
+            {% for tag in object.tags.all %}
+            initialTags.push("{{ tag.name }}");
+            {% endfor %}
+            {% endif %}
 
-        TagManager.init({
-            inputSelector: '#tag-input',
-            addButtonSelector: '#add-tag-button',
-            containerSelector: '#tags-container',
-            hiddenSelectSelector: '#id_tags',
-            initialTags: initialTags,
-            maxTags: 8
+            TagManager.init({
+                inputSelector: '#tag-input',
+                addButtonSelector: '#add-tag-button',
+                containerSelector: '#tags-container',
+                hiddenTagNamesSelector: '#id_tag_names',
+                initialTags: initialTags,
+                maxTags: 8
+            });
         });
-    });
-</script>
+    </script>
 {% endblock %}

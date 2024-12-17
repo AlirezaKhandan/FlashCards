@@ -3,12 +3,8 @@ class TagManager {
         this.input = document.querySelector(config.inputSelector);
         this.addButton = document.querySelector(config.addButtonSelector);
         this.container = document.querySelector(config.containerSelector);
-        this.hiddenSelect = document.querySelector(config.hiddenSelectSelector);
+        this.hiddenTagNames = document.querySelector(config.hiddenTagNamesSelector);
         this.maxTags = config.maxTags || 8;
-
-        for (let option of this.hiddenSelect.options) {
-            option.selected = false;
-        }
 
         this.tags = config.initialTags || [];
         this.tags.forEach(tag => this.addTagElement(tag));
@@ -20,6 +16,12 @@ class TagManager {
                 this.addTagFromInput();
             }
         });
+
+        const form = this.input.closest('form');
+        form.addEventListener('submit', () => {
+            // On form submission, join tags into a comma-separated string
+            this.hiddenTagNames.value = this.tags.join(',');
+        });
     }
 
     static addTagFromInput() {
@@ -28,7 +30,6 @@ class TagManager {
             if (this.tags.length < this.maxTags) {
                 this.tags.push(newTag);
                 this.addTagElement(newTag);
-                this.syncHiddenSelect();
             } else {
                 alert(`You can select up to ${this.maxTags} tags.`);
             }
@@ -54,18 +55,5 @@ class TagManager {
     static removeTag(tag, chipElement) {
         this.tags = this.tags.filter(t => t !== tag);
         chipElement.remove();
-        this.syncHiddenSelect();
-    }
-
-    static syncHiddenSelect() {
-        for (let option of this.hiddenSelect.options) {
-            option.selected = false;
-        }
-
-        for (let option of this.hiddenSelect.options) {
-            if (this.tags.includes(option.textContent.trim())) {
-                option.selected = true;
-            }
-        }
     }
 }

@@ -20,7 +20,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import FlashCardSet, FlashCard, Comment, Collection, User, Rating, UserFavorite, Tag
 from .serializers import FlashCardSetSerializer, FlashCardSerializer, CommentSerializer, CollectionSerializer, UserSerializer
 from .forms import FlashCardSetForm, FlashCardForm, CustomUserCreationForm, CollectionForm
-
+from .utils import get_average_rating
 from django.db.models import Q
 from django.contrib.auth import authenticate
 
@@ -322,54 +322,105 @@ class CommentDeleteView(LoginRequiredMixin, DeleteView):
 
 # Allows searching for flashcard sets and cards by keyword.
 # Returns a list of sets matching the query.
-class SearchView(LoginRequiredMixin, ListView):
+class SearchView(LoginRequiredMixin, TemplateView):
     template_name = 'search/results.html'
-    context_object_name = 'results'
-
-    def get_queryset(self):
-        # By default, we'll treat `results` as flashcard sets
-        query = self.request.GET.get('q')
-        if query:
-            # Find tags that match the query
-            matching_tags = Tag.objects.filter(name__icontains=query)
-            # Sets that match by name, card question or tags
-            sets_query = FlashCardSet.objects.filter(
-                Q(name__icontains=query) |
-                Q(cards__question__icontains=query) |
-                Q(tags__in=matching_tags)
-            ).distinct()
-            return sets_query
-        return FlashCardSet.objects.none()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        query = self.request.GET.get('q')
-        if query:
-            # Search users by username
-            users = User.objects.filter(username__icontains=query)
-            # Search collections by name
-            collections = Collection.objects.filter(name__icontains=query)
+        query = self.request.GET.get('q', '').strip()
 
-            context['users'] = users
-            context['collections'] = collections
-            context['query'] = query
-        else:
-            context['users'] = []
-            context['collections'] = []
-            context['query'] = ""
+        # If no query, return empty results
+        if not query:
+            context.update({
+                'query': query,
+                'your_materials': {'sets': [], 'collections': []},
+                'sets': [],
+                'collections': [],
+                'tags': [],
+                'users': []
+            })
+            return context
+
+        # Find tags matching the query
+        matching_tags = Tag.objects.filter(name__icontains=query)
+
+        # Find sets matching by name, question in cards, or tags
+        sets_query = FlashCardSet.objects.filter(
+            Q(name__icontains=query) | 
+            Q(cards__question__icontains=query) | 
+            Q(tags__in=matching_tags)
+        ).distinct()
+
+        # Find collections by name
+        collections_query = Collection.objects.filter(name__icontains=query)
+
+        # Find users by username
+        users_query = User.objects.filter(username__icontains=query)
+
+        # Calculate ratings for sets
+        rated_sets = []
+        for s in sets_query:
+            avg_rating = get_average_rating(s)  # This should return a float rating
+            rated_sets.append({'object': s, 'rating': avg_rating})
+
+        rated_collections = list(collections_query)
+        found_tags = list(matching_tags)
+        found_users = list(users_query)
+
+        # Identify current user's sets and collections
+        current_user = self.request.user
+        user_sets = [rs for rs in rated_sets if rs['object'].author == current_user]
+        user_collections = [c for c in rated_collections if c.author == current_user]
+
+        your_materials = {
+            'sets': user_sets,
+            'collections': user_collections
+        }
+
+        # Other sets and collections not created by the user
+        other_sets = [rs for rs in rated_sets if rs['object'].author != current_user]
+        other_collections = [c for c in rated_collections if c.author != current_user]
+
+        context.update({
+            'query': query,
+            'your_materials': your_materials,
+            'sets': other_sets,
+            'collections': other_collections,
+            'tags': found_tags,
+            'users': found_users
+        })
+
         return context
+
+
+
     
 # Updates an existing flashcard set.
 # Checks permissions so only the author can update.
 class FlashCardSetUpdateView(LoginRequiredMixin, UpdateView):
-    """Update an existing flashcard set."""
     model = FlashCardSet
     form_class = FlashCardSetForm
-    template_name = 'sets/edit.html' 
+    template_name = 'sets/edit.html'
 
     def get_queryset(self):
-        # Ensure that users can only edit their own sets
         return FlashCardSet.objects.filter(author=self.request.user)
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        # After the set is saved, handle tags
+        tag_names = self.request.POST.get('tag_names', '')
+        tag_list = [t.strip() for t in tag_names.split(',') if t.strip()]
+
+        # Create any new tags not in DB
+        from .models import Tag
+        final_tags = []
+        for name in tag_list:
+            tag, created = Tag.objects.get_or_create(name=name)
+            final_tags.append(tag)
+
+        # Assign the tags to the instance
+        self.object.tags.set(final_tags)
+        return response
 
     def get_success_url(self):
         return reverse_lazy('flashcard-set-list')
@@ -467,24 +518,6 @@ class RemoveSetFromCollection(LoginRequiredMixin, View):
         flashcard_set = get_object_or_404(FlashCardSet, id=pk)
         collection.sets.remove(flashcard_set)
         return redirect('flashcard-set-detail', pk=pk)
-
-# Displays flashcard sets based on a search query, sorted by creation date.
-class BrowseSetsView(ListView):
-    
-    model = FlashCardSet
-    template_name = 'sets/browse_list.html'
-    context_object_name = 'sets'
-    # TODO:Optional: adds pagination
-    paginate_by = 10  
-
-    def get_queryset(self):
-        query = self.request.GET.get('q')
-        if query:
-            return FlashCardSet.objects.filter(name__icontains=query).order_by('-createdAt')
-        else:
-            return FlashCardSet.objects.none()
-
-    
 
 
 
