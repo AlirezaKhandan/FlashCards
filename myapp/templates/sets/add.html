@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 <div class="max-w-md mx-auto bg-white p-6 rounded-md shadow-md">
     <h2 class="text-2xl font-bold mb-6 text-center">Create New Flashcard Set</h2>
@@ -7,7 +8,7 @@
             {{ form.errors }}
         </div>
     {% endif %}
-    <form method="post" class="space-y-4">
+    <form method="post" action="{% url 'flashcard-set-add' %}" class="space-y-4 ajax-form">
         {% csrf_token %}
         {{ form.name.label_tag }}<br>
         {{ form.name }}
@@ -16,4 +17,8 @@
         </button>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/form_submit.js' %}"></script>
 {% endblock %}

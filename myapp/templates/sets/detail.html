@@ -51,9 +51,9 @@
 
         <!-- Navigation Buttons -->
         <div class="flex justify-between mt-4">
-            <button id="prev-button" class="bg-gray-300 px-4 py-2 rounded">Previous</button>
-            <button id="show-answer-button" class="bg-blue-500 text-white px-4 py-2 rounded">Show Answer</button>
-            <button id="next-button" class="bg-gray-300 px-4 py-2 rounded">Next</button>
+            <button id="prev-button" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-500">Previous</button>
+            <button id="show-answer-button" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">Show Answer</button>
+            <button id="next-button" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-500">Next</button>
         </div>
 
         <!-- Comments Section -->
@@ -73,7 +73,7 @@
                 <form method="post">
                     {% csrf_token %}
                     {{ comment_form.as_p }}
-                    <button type="submit" name="comment_form" class="bg-blue-500 text-white px-4 py-2 rounded">Post Comment</button>
+                    <button type="submit" name="comment_form" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">Post Comment</button>
                 </form>
             {% else %}
                 <p><a href="{% url 'login' %}" class="text-blue-500 hover:underline">Log in</a> to post a comment.</p>

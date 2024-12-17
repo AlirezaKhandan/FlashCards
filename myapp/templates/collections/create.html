@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-
+{% load static %}
 {% block content %}
 <h2 class="text-2xl font-bold mb-4 text-center">Create New Collection</h2>
 
 <div class="max-w-md mx-auto">
-    <form method="post" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+    <form method="post" action="{% url 'collection-add' %}" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 ajax-form">
         {% csrf_token %}
         {{ form.as_p }}
         <div class="flex items-center justify-between">
@@ -17,4 +17,8 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/form_submit.js' %}"></script>
 {% endblock %}

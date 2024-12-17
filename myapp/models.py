@@ -154,6 +154,7 @@ class Rating(models.Model):
 class UserDailyCreation(models.Model):
     """Model to track daily creation counts for each user."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='daily_creations')
+    last_reset = models.DateTimeField(default=timezone.now)
     date = models.DateField(default=timezone.now)
     flashcards_created = models.PositiveIntegerField(default=0)
     sets_created = models.PositiveIntegerField(default=0)
