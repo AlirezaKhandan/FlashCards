@@ -194,19 +194,17 @@ class FlashCardSetCreateView(LoginRequiredMixin, CreateView):
     template_name = 'sets/add.html'
 
     def form_valid(self, form):
-        # AJAX request expected
         if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             today = timezone.now().date()
             user_daily, _ = UserDailyCreation.objects.get_or_create(user=self.request.user, date=today)
             creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
 
-            # Check limit for sets
             if user_daily.sets_created >= creation_limit.daily_set_limit and not self.request.user.is_superuser:
                 next_reset = (timezone.now() + timedelta(hours=1)).strftime("%H:%M %p")
-                return JsonResponse({'detail': f"You have reached your daily set creation limit ({creation_limit.daily_set_limit}). You can create more sets after {next_reset}."},
-                                    status=429)
+                return JsonResponse({
+                    'detail': f"You have reached your hourly set creation limit ({creation_limit.daily_set_limit}). You can create more sets after {next_reset}."
+                }, status=429)
             
-            # Check if approaching limit (e.g., half the limit left)
             approaching_limit = (creation_limit.daily_set_limit - user_daily.sets_created) <= (creation_limit.daily_set_limit // 2)
 
             self.object = form.save(commit=False)
@@ -215,15 +213,20 @@ class FlashCardSetCreateView(LoginRequiredMixin, CreateView):
             user_daily.sets_created += 1
             user_daily.save()
 
-            data = {'detail': "Created successfully!"}
+            data = {'detail': "Created successfully!", 'redirect_url': reverse('flashcard-set-list')}
             if approaching_limit and user_daily.sets_created < creation_limit.daily_set_limit:
                 left = creation_limit.daily_set_limit - user_daily.sets_created
-                data['warning'] = f"You are approaching your daily set limit. Only {left} set(s) left before the next reset."
+                data['warning'] = f"You are approaching your hourly set limit. Only {left} set(s) left before the next reset."
 
             return JsonResponse(data, status=200)
         else:
-            # Non-AJAX fallback if needed
             return super().form_valid(form)
+
+    def form_invalid(self, form):
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'detail': "Validation error", 'errors': form.errors}, status=400)
+        return super().form_invalid(form)
+
 
 
 
@@ -315,16 +318,16 @@ class FlashCardCreateView(LoginRequiredMixin, CreateView):
             creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
             flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['pk'])
 
-            # Check limit
             if user_daily_creation.flashcards_created >= creation_limit.daily_flashcard_limit and not user.is_superuser:
                 next_reset = (timezone.now() + timedelta(hours=1)).strftime("%H:%M %p")
-                return JsonResponse({'detail': f"You have reached your daily flashcard creation limit ({creation_limit.daily_flashcard_limit}). You can create more flashcards after {next_reset}."},
-                                    status=429)
-
+                return JsonResponse({
+                    'detail': f"You have reached your hourly flashcard creation limit ({creation_limit.daily_flashcard_limit}). You can create more flashcards after {next_reset}."
+                }, status=429)
+            
             approaching_limit = (creation_limit.daily_flashcard_limit - user_daily_creation.flashcards_created) <= (creation_limit.daily_flashcard_limit // 2)
 
             self.object = form.save(commit=False)
-            self.object.set = flashcard_set  # Ensure set is assigned
+            self.object.set = flashcard_set
             self.object.save()
             user_daily_creation.flashcards_created += 1
             user_daily_creation.save()
@@ -332,11 +335,17 @@ class FlashCardCreateView(LoginRequiredMixin, CreateView):
             data = {'detail': "Created successfully!"}
             if approaching_limit and user_daily_creation.flashcards_created < creation_limit.daily_flashcard_limit:
                 left = creation_limit.daily_flashcard_limit - user_daily_creation.flashcards_created
-                data['warning'] = f"You are approaching your daily flashcard limit. Only {left} flashcard(s) left before the next reset."
+                data['warning'] = f"You are approaching your hourly flashcard limit. Only {left} flashcard(s) left before the next reset."
 
             return JsonResponse(data, status=200)
         else:
             return super().form_valid(form)
+
+    def form_invalid(self, form):
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'detail': "Validation error", 'errors': form.errors}, status=400)
+        return super().form_invalid(form)
+
 
 
 
@@ -556,17 +565,16 @@ class CollectionCreateView(LoginRequiredMixin, CreateView):
     template_name = 'collections/create.html'
 
     def form_valid(self, form):
-        # AJAX request expected
         if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             today = timezone.now().date()
             user_daily, _ = UserDailyCreation.objects.get_or_create(user=self.request.user, date=today)
             creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
 
-            # Check limit for collections
             if user_daily.collections_created >= creation_limit.daily_collection_limit and not self.request.user.is_superuser:
                 next_reset = (timezone.now() + timedelta(hours=1)).strftime("%H:%M %p")
-                return JsonResponse({'detail': f"You have reached your daily collection creation limit ({creation_limit.daily_collection_limit}). You can create more collections after {next_reset}."},
-                                    status=429)
+                return JsonResponse({
+                    'detail': f"You have reached your hourly collection creation limit ({creation_limit.daily_collection_limit}). You can create more collections after {next_reset}."
+                }, status=429)
 
             approaching_limit = (creation_limit.daily_collection_limit - user_daily.collections_created) <= (creation_limit.daily_collection_limit // 2)
 
@@ -576,14 +584,20 @@ class CollectionCreateView(LoginRequiredMixin, CreateView):
             user_daily.collections_created += 1
             user_daily.save()
 
-            data = {'detail': "Created successfully!"}
+            data = {'detail': "Created successfully!", 'redirect_url': reverse('collection-list')}
             if approaching_limit and user_daily.collections_created < creation_limit.daily_collection_limit:
                 left = creation_limit.daily_collection_limit - user_daily.collections_created
-                data['warning'] = f"You are approaching your daily collection limit. Only {left} collection(s) left before the next reset."
+                data['warning'] = f"You are approaching your hourly collection limit. Only {left} collection(s) left before the next reset."
 
             return JsonResponse(data, status=200)
         else:
             return super().form_valid(form)
+
+    def form_invalid(self, form):
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'detail': "Validation error", 'errors': form.errors}, status=400)
+        return super().form_invalid(form)
+
 
 # Deletes a collection.
 # If `delete_sets` is checked, deletes all sets in the collection too.

@@ -35,11 +35,13 @@ class FlashCardForm(forms.ModelForm):
                 'class': 'w-full px-3 py-2 border rounded',
                 'placeholder': 'Question',
                 'rows': 4,
+                'style': 'resize:none;',
             }),
             'answer': forms.Textarea(attrs={
                 'class': 'w-full px-3 py-2 border rounded',
                 'placeholder': 'Answer',
                 'rows': 4,
+                'style': 'resize:none;',
             }),
             'difficulty': forms.Select(attrs={
                 'class': 'w-full px-3 py-2 border rounded',
@@ -82,7 +84,7 @@ class CollectionForm(forms.ModelForm):
         fields = ['name', 'description']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'border border-gray-300 rounded px-3 py-2 w-full'}),
-            'description': forms.Textarea(attrs={'class': 'border border-gray-300 rounded px-3 py-2 w-full'}),
+            'description': forms.Textarea(attrs={'class': 'border border-gray-300 rounded px-3 py-2 w-full', 'style': 'resize:none;'}),
         }
 
 
@@ -95,5 +97,7 @@ class CommentForm(forms.ModelForm):
                 'class': 'w-full px-3 py-2 border rounded',
                 'placeholder': 'Add a comment...',
                 'rows': 3,
+                'maxlength': '500', 
+                'style': 'resize:none;'
             }),
         }

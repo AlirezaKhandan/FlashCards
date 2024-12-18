@@ -5,6 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(form);
+            const messageBox = form.querySelector('#message-box');
+
+            // Clear old messages
+            if (messageBox) messageBox.innerHTML = '';
 
             fetch(form.action, {
                 method: 'POST',
@@ -20,44 +24,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 }));
             })
             .then(({ data, status }) => {
-                const messageBox = form.querySelector('#message-box');
-                if (messageBox) {
-                    messageBox.innerHTML = ''; // Clear old messages
-                }
+                if (!messageBox) return; // If no message-box, just return
 
                 if (status === 200) {
                     // Success scenario
                     if (data.warning) {
-                        // Insert a warning message
-                        if (messageBox) {
-                            messageBox.innerHTML += `<div class="bg-yellow-100 text-yellow-700 p-3 rounded mb-3">${data.warning}</div>`;
-                        }
+                        messageBox.innerHTML += `<div class="bg-yellow-100 text-yellow-700 p-3 rounded mb-3">${data.warning}</div>`;
                     }
                     if (data.detail) {
-                        // Insert success message
-                        if (messageBox) {
-                            messageBox.innerHTML += `<div class="bg-green-100 text-green-700 p-3 rounded">${data.detail}</div>`;
-                        }
+                        messageBox.innerHTML += `<div class="bg-green-100 text-green-700 p-3 rounded">${data.detail}</div>`;
+                    }
+                    if (data.redirect_url) {
+                        // Redirect after short delay to show the message
+                        setTimeout(() => {
+                            window.location.href = data.redirect_url;
+                        }, 1500);
                     }
                 } else if (status === 429) {
                     // Limit exceeded error
-                    if (data.detail && messageBox) {
+                    if (data.detail) {
                         messageBox.innerHTML += `<div class="bg-red-100 text-red-700 p-3 rounded">${data.detail}</div>`;
                     }
                 } else {
-                    // Some other error (e.g. validation errors)
-                    if (data.detail && messageBox) {
+                    // Validation or unknown error
+                    if (data.detail) {
                         messageBox.innerHTML += `<div class="bg-red-100 text-red-700 p-3 rounded">${data.detail}</div>`;
                     } else {
-                        // Generic error
-                        if (messageBox) {
-                            messageBox.innerHTML += `<div class="bg-red-100 text-red-700 p-3 rounded">An unknown error occurred.</div>`;
-                        }
+                        messageBox.innerHTML += `<div class="bg-red-100 text-red-700 p-3 rounded">An unknown error occurred.</div>`;
                     }
                 }
             })
             .catch(err => {
-                const messageBox = form.querySelector('#message-box');
                 if (messageBox) {
                     messageBox.innerHTML = `<div class="bg-red-100 text-red-700 p-3 rounded">A network error occurred. Please try again.</div>`;
                 }

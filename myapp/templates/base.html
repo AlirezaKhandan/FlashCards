@@ -39,15 +39,15 @@
                 <span class="text-lg font-medium text-gray-700">Hello, {{ user.username }}</span>
                 <form method="post" action="{% url 'logout' %}" style="display: inline;">
                     {% csrf_token %}
-                    <button type="submit" class="px-5 py-2 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-gray-800">
+                    <button type="submit" class="px-4 py-1 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-gray-800">
                         Logout
                     </button>
                 </form>               
             {% else %}
-                <a href="{% url 'register' %}" class="px-5 py-2 text-lg font-thin bg-blue-500 text-white rounded-xl hover:bg-blue-700">
+                <a href="{% url 'register' %}" class="px-4 py-1 text-lg font-thin bg-blue-500 text-white rounded-lg hover:bg-blue-700">
                     Sign Up
                 </a>
-                <a href="{% url 'login' %}" class="px-5 py-2 text-lg font-thin bg-gray-700 text-white rounded-xl hover:bg-gray-800">
+                <a href="{% url 'login' %}" class="px-4 py-1 text-lg font-thin bg-gray-700 text-white rounded-lg hover:bg-gray-800">
                     Login
                 </a>
             {% endif %}
