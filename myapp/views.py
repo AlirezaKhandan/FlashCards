@@ -429,12 +429,59 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
 
 # Deletes an existing comment from a flashcard set.
 class CommentDeleteView(LoginRequiredMixin, DeleteView):
-    """Delete an existing comment."""
     model = Comment
     template_name = 'comments/delete.html'
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.user.is_superuser:
+            return qs
+        return qs.filter(author=self.request.user)
+
     def get_success_url(self):
-        return reverse_lazy('flashcard-set-detail', kwargs={'pk': self.object.flashcard_set.id})
+        # Attempt to get flashcard_set from either the old field or content_object
+        flashcard_set = self.object.flashcard_set
+        if not flashcard_set:
+            # If flashcard_set is None, comment should have a content_object that's a FlashCardSet
+            if self.object.content_object and isinstance(self.object.content_object, FlashCardSet):
+                flashcard_set = self.object.content_object
+        if flashcard_set:
+            return reverse_lazy('flashcard-set-detail', kwargs={'pk': flashcard_set.id})
+        # Fallback if something unexpected happens
+        return reverse_lazy('flashcard-set-list')
+
+
+class CommentUpdateView(LoginRequiredMixin, UpdateView):
+    model = Comment
+    fields = ['content']
+    template_name = 'comments/edit.html'
+
+    def get_queryset(self):
+        # Only the author or superuser can edit
+        qs = super().get_queryset()
+        if self.request.user.is_superuser:
+            return qs
+        return qs.filter(author=self.request.user)
+
+    def form_valid(self, form):
+        self.object = form.save(commit=False)
+        # Optionally enforce max length of 1000 chars server-side
+        if len(self.object.content) > 1000:
+            form.add_error('content', "Comment cannot exceed 1000 characters.")
+            return self.form_invalid(form)
+        self.object.save()
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        # Similar logic as delete to redirect correctly
+        flashcard_set = self.object.flashcard_set
+        if not flashcard_set and self.object.content_object and isinstance(self.object.content_object, FlashCardSet):
+            flashcard_set = self.object.content_object
+        if flashcard_set:
+            return reverse_lazy('flashcard-set-detail', kwargs={'pk': flashcard_set.id})
+        return reverse_lazy('flashcard-set-list')
+
+
 
 # Allows searching for flashcard sets and cards by keyword.
 # Returns a list of sets matching the query.

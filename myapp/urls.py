@@ -55,6 +55,7 @@ from .views import (
     RandomCollectionRedirectView,
     AddToFavoritesView,
     UserFavouritesView,
+    CommentUpdateView,
 
     # Rating
     RateItemView,
@@ -89,6 +90,8 @@ urlpatterns = [
     # Web Interface - Comments
     path('sets/<int:pk>/comments/add/', CommentCreateView.as_view(), name='comment-add'),
     path('comments/<int:pk>/delete/', CommentDeleteView.as_view(), name='comment-delete'),
+    path('comments/<int:pk>/edit/', CommentUpdateView.as_view(), name='comment-edit'),
+
 
     # Web Interface - Collections
     path('collections/', CollectionListView.as_view(), name='collection-list'),

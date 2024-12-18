@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+
 {% block content %}
 <div class="flex">
     <!-- Side Section -->
@@ -60,41 +61,44 @@
         <div class="mt-8">
             <h3 class="text-xl font-bold mb-4">Comments</h3>
             {% for comment in comments %}
-                <div class="mb-4 border-b pb-2">
-                    <div class="flex items-center justify-between">
-                        <p class="text-gray-700"><strong>{{ comment.author.username }}</strong> said:</p>
-                        {% if comment.author == user or user.is_superuser %}
-                        <!-- Dropdown menu trigger -->
-                        <div class="relative inline-block text-left">
-                            <button class="inline-flex justify-center w-8 h-8 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-full focus:outline-none" type="button">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 5h.01M12 12h.01M12 19h.01" />
-                                </svg>
-                            </button>
-                            <div class="origin-top-right absolute right-0 mt-2 w-28 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden" role="menu">
-                                <!-- For now, Edit could just be a placeholder link '#' -->
-                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit</a>
-                                <form action="{% url 'comment-delete' comment.pk %}" method="post">
-                                    {% csrf_token %}
-                                    <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Delete</button>
-                                </form>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                    <!-- Break long words -->
-                    <p class="text-gray-900 break-words">{{ comment.content }}</p>
+                <div class="mb-4 border-b pb-2 relative">
+                    <p class="text-gray-700"><strong>{{ comment.author.username }}</strong> said:</p>
+                    <p class="text-gray-900 break-words whitespace-pre-wrap" id="comment-content-{{ comment.pk }}">{{ comment.content }}</p>
                     <p class="text-gray-500 text-sm">{{ comment.created_at|date:"F j, Y, g:i a" }}</p>
+
+                    {% if user.is_superuser or user == comment.author %}
+                    <!-- Dropdown menu trigger (3 dots) -->
+                    <div class="absolute top-2 right-2 inline-block text-left">
+                        <button class="inline-flex justify-center items-center w-8 h-8 rounded-full hover:bg-gray-300 focus:outline-none transition-colors duration-200" type="button">
+                            <!-- Slightly larger dots -->
+                            <svg class="w-6 h-6 text-gray-700 hover:text-gray-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5h.01M12 12h.01M12 19h.01"/>
+                            </svg>
+                        </button>
+                        <div class="origin-top-right absolute right-0 mt-2 w-28 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden" role="menu">
+                            <button type="button" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 comment-edit-btn" data-id="{{ comment.pk }}" data-content="{{ comment.content }}">
+                                Edit
+                            </button>
+                            <form action="{% url 'comment-delete' comment.pk %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             {% empty %}
                 <p>No comments yet.</p>
             {% endfor %}
 
             {% if user.is_authenticated %}
-                <form method="post">
+                <form method="post" class="mt-4">
                     {% csrf_token %}
-                    {{ comment_form.as_p }}
-                    <button type="submit" name="comment_form" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">Post Comment</button>
+                    {{ comment_form.content.errors }}
+                    <textarea name="content" class="border rounded w-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Add a comment..." rows="4" maxlength="1000" style="resize: none;"></textarea>
+                    <button type="submit" name="comment_form" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2">
+                        Post Comment
+                    </button>
                 </form>
             {% else %}
                 <p><a href="{% url 'login' %}" class="text-blue-500 hover:underline">Log in</a> to post a comment.</p>
@@ -103,19 +107,37 @@
     </div>
 </div>
 
+<!-- Modal for editing comment -->
+<div id="edit-comment-modal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+    <div class="absolute inset-0 bg-black opacity-50"></div>
+    <div class="bg-white p-6 rounded shadow-md relative w-full max-w-md">
+        <h2 class="text-xl font-bold mb-4">Edit Comment</h2>
+        <form id="edit-comment-form">
+            {% csrf_token %}
+            <input type="hidden" name="comment_id" id="edit-comment-id">
+            <textarea id="edit-comment-content" name="content" class="border rounded w-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="4" maxlength="1000" style="resize: none;"></textarea>
+            <div class="flex justify-end space-x-4 mt-4">
+                <button type="button" id="edit-cancel-button" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400">
+                    Cancel
+                </button>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Include JavaScript Data -->
 {{ flashcards|json_script:"flashcards-data" }}
 
 <script>
-    // Parse the flashcards data
+    // Flashcard navigation and display logic
     const flashcards = JSON.parse(document.getElementById('flashcards-data').textContent);
     let currentIndex = 0;
     let showingAnswer = false;
-
-    // Store if the current user is the author
     const isAuthor = document.getElementById('flashcard-container').getAttribute('data-is-author') === 'true';
 
-    // Predefined URL patterns for edit/delete
     const editUrlPattern = "{% url 'flashcard-edit' 99999 %}";
     const deleteUrlPattern = "{% url 'flashcard-delete' 99999 %}";
 
@@ -130,7 +152,6 @@
                     </a>.
                 </p>
             `;
-            // Hide navigation buttons when there are no flashcards
             document.getElementById('prev-button').style.display = 'none';
             document.getElementById('show-answer-button').style.display = 'none';
             document.getElementById('next-button').style.display = 'none';
@@ -139,24 +160,14 @@
         }
 
         const flashcard = flashcards[currentIndex];
-
-        // Determine difficulty color class
         let difficultyColorClass;
         switch (flashcard.difficulty) {
-            case 'Easy':
-                difficultyColorClass = 'text-green-500';
-                break;
-            case 'Medium':
-                difficultyColorClass = 'text-yellow-500';
-                break;
-            case 'Hard':
-                difficultyColorClass = 'text-red-500';
-                break;
-            default:
-                difficultyColorClass = 'text-gray-500';
+            case 'Easy': difficultyColorClass = 'text-green-500'; break;
+            case 'Medium': difficultyColorClass = 'text-yellow-500'; break;
+            case 'Hard': difficultyColorClass = 'text-red-500'; break;
+            default: difficultyColorClass = 'text-gray-500';
         }
 
-        // Construct the flashcard HTML
         let flashcardHTML = `
             <div class="relative">
                 <span class="absolute top-0 right-0 ${difficultyColorClass} font-bold px-2 py-1">
@@ -166,7 +177,6 @@
                 <p class="text-lg mb-4 break-words">${showingAnswer ? flashcard.answer : flashcard.question}</p>
         `;
 
-        // If user is author, add edit/delete links using dynamic IDs
         if (isAuthor) {
             const editUrl = editUrlPattern.replace('99999', flashcard.id);
             const deleteUrl = deleteUrlPattern.replace('99999', flashcard.id);
@@ -183,10 +193,7 @@
         }
 
         flashcardHTML += `</div>`;
-
         container.innerHTML = flashcardHTML;
-
-        // Update flashcard counter
         document.getElementById('flashcard-counter').innerText = (currentIndex + 1) + '/' + flashcards.length;
     }
 
@@ -207,13 +214,9 @@
         renderFlashcard();
     });
 
-    // Initial render
     renderFlashcard();
-</script>
 
-<!-- AJAX for Rating Submission -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
+    // AJAX for Rating Submission
     $('#rating-form').on('submit', function(e) {
         e.preventDefault();
         $.ajax({
@@ -222,7 +225,6 @@
             data: $(this).serialize(),
             success: function(data) {
                 alert('Rating submitted! New average rating: ' + data.average_rating.toFixed(1));
-                // Update the displayed average rating
                 $('h4.text-md.font-semibold').text('Rating: ' + data.average_rating.toFixed(1) + ' ⭐');
             },
             error: function() {
@@ -230,9 +232,7 @@
             }
         });
     });
-</script>
 
-<script>
     document.getElementById('show-rating-form-button').addEventListener('click', function() {
         var ratingForm = document.getElementById('rating-form');
         if (ratingForm.style.display === 'none') {
@@ -243,18 +243,64 @@
 
     // Dropdown menu for comments
     document.addEventListener('click', function(event) {
-        const button = event.target.closest('.inline-flex.w-8.h-8');
+        const button = event.target.closest('button');
         const menus = document.querySelectorAll('.origin-top-right[role="menu"]');
         menus.forEach(menu => {
             if (button && menu.parentElement.contains(button)) {
-                // Toggle the menu
                 menu.classList.toggle('hidden');
             } else {
-                // Hide all other menus
                 menu.classList.add('hidden');
             }
         });
     });
-</script>
 
+    // Edit comment modal logic
+    const editModal = document.getElementById('edit-comment-modal');
+    const editForm = document.getElementById('edit-comment-form');
+    const editCancelBtn = document.getElementById('edit-cancel-button');
+    const editCommentIDInput = document.getElementById('edit-comment-id');
+    const editCommentContentTextarea = document.getElementById('edit-comment-content');
+
+    document.querySelectorAll('.comment-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const commentId = btn.getAttribute('data-id');
+            const commentContent = btn.getAttribute('data-content');
+            editCommentIDInput.value = commentId;
+            editCommentContentTextarea.value = commentContent;
+            editModal.classList.remove('hidden');
+        });
+    });
+
+    editCancelBtn.addEventListener('click', () => {
+        editModal.classList.add('hidden');
+    });
+
+    editForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const commentId = editCommentIDInput.value;
+        const newContent = editCommentContentTextarea.value;
+
+        if (newContent.length > 1000) {
+            alert('Comment cannot exceed 1000 characters.');
+            return;
+        }
+
+        $.ajax({
+            url: "/comments/" + commentId + "/edit/",
+            method: "POST",
+            data: {
+                'content': newContent,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(data) {
+                // Update comment content on page
+                document.getElementById('comment-content-' + commentId).textContent = newContent;
+                editModal.classList.add('hidden');
+            },
+            error: function() {
+                alert('Error editing comment. Please try again.');
+            }
+        });
+    });
+</script>
 {% endblock %}
