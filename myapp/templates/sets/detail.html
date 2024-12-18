@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 <div class="flex">
     <!-- Side Section -->
@@ -44,7 +45,6 @@
         <h1 class="text-2xl font-bold mb-4">{{ set.name }}</h1>
 
         <!-- Flashcard Container -->
-        <!-- Using data-is-author to pass author info into JS -->
         <div id="flashcard-container" class="my-4 p-6 border rounded-lg shadow-md relative" data-is-author="{% if user == set.author %}true{% else %}false{% endif %}">
             <!-- Flashcard content injected by JavaScript -->
         </div>
@@ -61,8 +61,29 @@
             <h3 class="text-xl font-bold mb-4">Comments</h3>
             {% for comment in comments %}
                 <div class="mb-4 border-b pb-2">
-                    <p class="text-gray-700"><strong>{{ comment.author.username }}</strong> said:</p>
-                    <p class="text-gray-900">{{ comment.content }}</p>
+                    <div class="flex items-center justify-between">
+                        <p class="text-gray-700"><strong>{{ comment.author.username }}</strong> said:</p>
+                        {% if comment.author == user or user.is_superuser %}
+                        <!-- Dropdown menu trigger -->
+                        <div class="relative inline-block text-left">
+                            <button class="inline-flex justify-center w-8 h-8 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-full focus:outline-none" type="button">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 5h.01M12 12h.01M12 19h.01" />
+                                </svg>
+                            </button>
+                            <div class="origin-top-right absolute right-0 mt-2 w-28 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden" role="menu">
+                                <!-- For now, Edit could just be a placeholder link '#' -->
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit</a>
+                                <form action="{% url 'comment-delete' comment.pk %}" method="post">
+                                    {% csrf_token %}
+                                    <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <!-- Break long words -->
+                    <p class="text-gray-900 break-words">{{ comment.content }}</p>
                     <p class="text-gray-500 text-sm">{{ comment.created_at|date:"F j, Y, g:i a" }}</p>
                 </div>
             {% empty %}
@@ -142,7 +163,7 @@
                     ${flashcard.difficulty}
                 </span>
                 <h3 class="text-xl font-semibold mb-2">${showingAnswer ? 'Answer' : 'Question'}</h3>
-                <p class="text-lg mb-4">${showingAnswer ? flashcard.answer : flashcard.question}</p>
+                <p class="text-lg mb-4 break-words">${showingAnswer ? flashcard.answer : flashcard.question}</p>
         `;
 
         // If user is author, add edit/delete links using dynamic IDs
@@ -218,6 +239,21 @@
             ratingForm.style.display = 'block';
             this.style.display = 'none';
         }
+    });
+
+    // Dropdown menu for comments
+    document.addEventListener('click', function(event) {
+        const button = event.target.closest('.inline-flex.w-8.h-8');
+        const menus = document.querySelectorAll('.origin-top-right[role="menu"]');
+        menus.forEach(menu => {
+            if (button && menu.parentElement.contains(button)) {
+                // Toggle the menu
+                menu.classList.toggle('hidden');
+            } else {
+                // Hide all other menus
+                menu.classList.add('hidden');
+            }
+        });
     });
 </script>
 
