@@ -21,8 +21,6 @@ class FlashCardSetAdmin(admin.ModelAdmin):
     list_display = ('name', 'author', 'createdAt', 'updatedAt')
     search_fields = ('name', 'author__username')
     list_filter = ('author', 'createdAt', 'updatedAt')
-    # If tags are a many-to-many field, they appear in a separate interface by default.
-    # Could consider a filter_horizontal = ('tags',) if you want.
     filter_horizontal = ('tags',)
 
 @admin.register(FlashCard)
@@ -46,17 +44,17 @@ class CommentAdmin(admin.ModelAdmin):
 
 @admin.register(CreationLimit)
 class CreationLimitAdmin(admin.ModelAdmin):
-    # Only one record should exist. This ensures admin sees clearly.
+   
     list_display = ('daily_flashcard_limit', 'daily_set_limit', 'daily_collection_limit')
-    # Optional: if you want to prevent adding/deleting to keep it a true singleton:
+   
     def has_add_permission(self, request):
-        # If there's already an instance, no adding.
+        
         if self.model.objects.exists():
             return False
         return super().has_add_permission(request)
 
     def has_delete_permission(self, request, obj=None):
-        # Prevent deletion if you want a strict singleton
+        
         return False
 
 @admin.register(Rating)

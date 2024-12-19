@@ -1,6 +1,3 @@
-// myapp/static/js/homepage.js
-
-// Example: Simple carousel functionality for feature highlights
 document.addEventListener('DOMContentLoaded', function() {
     let currentSlide = 0;
     const slides = document.querySelectorAll('.feature-slide');
@@ -22,6 +19,5 @@ document.addEventListener('DOMContentLoaded', function() {
         showSlide(currentSlide);
     });
 
-    // Initialize the first slide
     showSlide(currentSlide);
 });

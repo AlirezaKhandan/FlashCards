@@ -36,7 +36,7 @@ class FlashCardSet(models.Model):
 
     def clean(self):
         super().clean()
-        # Ensure no more than 8 tags are associated
+        #  no more than 8 tags are associated
         if self.pk and self.tags.count() > 8:
             raise ValidationError("A set cannot have more than 8 tags.")
 
@@ -65,7 +65,7 @@ class Collection(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name="collections",
-        null=False,  # Make non-nullable
+        null=False,  
         blank=False
     )
     sets = models.ManyToManyField(FlashCardSet, related_name='collections')
@@ -103,17 +103,17 @@ class Comment(models.Model):
         blank=True
     )
     content = models.TextField()
-    # Add default value for created_at
+    
     created_at = models.DateTimeField(auto_now_add=True)
-    # Keep the old field temporarily
+    
     flashcard_set = models.ForeignKey(
         FlashCardSet,
         on_delete=models.CASCADE,
         related_name="comments",
-        null=True,  # Make nullable temporarily
+        null=True,  
         blank=True
     )
-    # New fields, made nullable temporarily
+    #
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
     object_id = models.PositiveIntegerField(null=True, blank=True)
     content_object = GenericForeignKey('content_type', 'object_id')
@@ -130,7 +130,7 @@ class CreationLimit(models.Model):
     daily_collection_limit = models.PositiveIntegerField(default=5)
 
     def save(self, *args, **kwargs):
-        self.pk = 1  # Ensure only one instance exists
+        self.pk = 1 
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -1,4 +1,5 @@
 import pytest
+from django.test import TestCase, Client
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -6,6 +7,7 @@ from django.contrib.auth.models import User
 from myapp.models import FlashCardSet, FlashCard, Comment, CreationLimit, UserFavorite, Tag, Rating, Collection
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.test import APITestCase
+import json
 
 @pytest.mark.django_db
 class TestComments:
@@ -74,11 +76,9 @@ class TestTagValidation:
             "name": "Tagged Set",
             "tag_names": ",".join([f"tag{i}" for i in range(10)])  # 10 tags
         }
-        # This depends on if your API supports tag_names directly.
-        # If not, this test might need adjusting or calling the update endpoint.
-        # Expecting a validation error
+       
         response = self.client.post(self.set_url, data, format='json')
-        # If your code raises a validation error with 400:
+        
         assert response.status_code in [400, 422]
         assert 'cannot have more than 8 tags' in str(response.content).lower()
 
@@ -104,7 +104,7 @@ class TestCommentUpdateDelete(APITestCase):
         self.delete_url = reverse('comment-delete', kwargs={'pk': self.comment.id})
 
     def test_update_own_comment(self):
-        # Log in as the author of the comment
+        
         self.client.login(username="commenter2", password="testpass")
         data = {"content": "Updated comment text"}
         r = self.client.post(self.update_url, data, format='multipart')
@@ -113,26 +113,26 @@ class TestCommentUpdateDelete(APITestCase):
         self.assertEqual(self.comment.content, "Updated comment text")
 
     def test_update_another_users_comment(self):
-        # Attempt to update comment as a different user (not author)
+        
         self.client.login(username="other", password="testpass2")
         data = {"content": "Should not update"}
         r = self.client.post(self.update_url, data, format='multipart')
-        # Expect a permission denial (likely 403), or no success redirect
+        
         self.assertNotEqual(r.status_code, 302)
         self.comment.refresh_from_db()
         self.assertEqual(self.comment.content, "Initial comment")
 
     def test_delete_own_comment(self):
-        # Log in as the author of the comment
+        
         self.client.login(username="commenter2", password="testpass")
         r = self.client.post(self.delete_url, {}, format='multipart')
-        self.assertEqual(r.status_code, 302)  # Assuming a redirect on success
+        self.assertEqual(r.status_code, 302)  
         self.assertFalse(Comment.objects.filter(id=self.comment.id).exists())
 
     def test_delete_another_users_comment(self):
         self.client.login(username="other", password="testpass2")
         r = self.client.post(self.delete_url, {}, format='multipart')
-        # Expect forbidden
+        
         self.assertNotEqual(r.status_code, 302)
         self.assertTrue(Comment.objects.filter(id=self.comment.id).exists())
 
@@ -220,3 +220,149 @@ class TestSearchByTags:
         response2 = self.client.get(self.search_url + "?q=history")
         assert response2.status_code == 200
         assert "French Geography" not in str(response2.content)
+
+class StudyModeTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="studymode", password="testpass")
+        self.client = Client()
+        self.client.login(username="studymode", password="testpass")
+
+        self.set_obj = FlashCardSet.objects.create(name="Capital Cities", author=self.user)
+        FlashCard.objects.create(question="Capital of France?", answer="Paris", set=self.set_obj)
+        FlashCard.objects.create(question="Capital of Japan?", answer="Tokyo", set=self.set_obj)
+
+        self.study_url = reverse('study-mode', kwargs={'pk': self.set_obj.pk})
+
+    def test_study_mode_access(self):
+        """
+        Ensure that a logged-in user can access study mode for a set they own.
+        """
+        response = self.client.get(self.study_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Study Mode:")
+        
+        self.assertIn('flashcards_json', response.context)
+
+        flashcards_data = json.loads(response.context['flashcards_json'])
+        self.assertEqual(len(flashcards_data), 2)
+        self.assertEqual(flashcards_data[0]['answer'], "Paris")
+
+    def test_study_mode_requires_login(self):
+        """
+        Check that if user is not logged in, they get redirected.
+        """
+        self.client.logout()
+        response = self.client.get(self.study_url)
+        self.assertNotEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 302)  
+class ToggleFavoriteTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="favs", password="testpass")
+        self.other_user = User.objects.create_user(username="other", password="otherpass")
+        self.client = Client()
+        self.client.login(username="favs", password="testpass")
+
+        self.set_obj = FlashCardSet.objects.create(name="Geography", author=self.other_user)
+        self.toggle_url = reverse('toggle-favorite')
+
+    def test_toggle_favorite_set(self):
+       
+        response = self.client.post(self.toggle_url, 
+            data=json.dumps({"type": "set", "id": self.set_obj.id}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("favorited", response.json())
+        self.assertTrue(response.json()["favorited"])
+        self.assertTrue(UserFavorite.objects.filter(user=self.user, object_id=self.set_obj.id).exists())
+
+      
+        response = self.client.post(self.toggle_url, 
+            data=json.dumps({"type": "set", "id": self.set_obj.id}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["favorited"])
+        self.assertFalse(UserFavorite.objects.filter(user=self.user, object_id=self.set_obj.id).exists())
+
+    def test_toggle_invalid_type(self):
+        
+        response = self.client.post(self.toggle_url, 
+            data=json.dumps({"type": "collection", "id": self.set_obj.id}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+
+class UpdateCollectionSetsTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="collector", password="testpass")
+        self.client = Client()
+        self.client.login(username="collector", password="testpass")
+
+        self.set_obj1 = FlashCardSet.objects.create(name="Math Set", author=self.user)
+        self.set_obj2 = FlashCardSet.objects.create(name="History Set", author=self.user)
+        self.collection = Collection.objects.create(name="My Collection", author=self.user)
+        self.update_url = reverse('collection-edit', kwargs={'pk': self.collection.pk})
+
+    def test_update_collection_add_sets(self):
+        
+        
+        self.assertEqual(self.collection.sets.count(), 0)
+
+        
+        response = self.client.post(self.update_url, {
+            'name': 'My Updated Collection',
+            'description': 'New Desc',
+            'selected_sets': [str(self.set_obj1.id), str(self.set_obj2.id)]
+        })
+        self.assertRedirects(response, reverse('collection-list'))
+        self.collection.refresh_from_db()
+        self.assertEqual(self.collection.sets.count(), 2)
+        self.assertIn(self.set_obj1, self.collection.sets.all())
+        self.assertIn(self.set_obj2, self.collection.sets.all())
+
+    def test_update_collection_remove_sets(self):
+        
+        self.collection.sets.add(self.set_obj1, self.set_obj2)
+        self.assertEqual(self.collection.sets.count(), 2)
+
+      
+        response = self.client.post(self.update_url, {
+            'name': 'No Sets',
+            'description': 'Empty now'
+            
+        })
+        self.assertRedirects(response, reverse('collection-list'))
+        self.collection.refresh_from_db()
+        self.assertEqual(self.collection.sets.count(), 0)
+
+    def test_update_collection_own_sets_only(self):
+        """
+        Ensure that user cannot add sets they do not own.
+        """
+        other_user = User.objects.create_user(username="otheruser", password="otherpass")
+        other_set = FlashCardSet.objects.create(name="Other Set", author=other_user)
+
+        response = self.client.post(self.update_url, {
+            'name': 'Try Adding Other Set',
+            'description': 'Invalid attempt',
+            'selected_sets': [str(other_set.id)]
+        })
+        
+        self.assertRedirects(response, reverse('collection-list'))
+        self.collection.refresh_from_db()
+        self.assertEqual(self.collection.sets.count(), 0)  
+
+class TagLimitTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="tagtester", password="testpass")
+        self.client = Client()
+        self.client.login(username="tagtester", password="testpass")
+        self.url = reverse('flashcard-set-add')
+
+    def test_set_creation_too_many_tags(self):
+        """
+        Creating a set with more than 8 tags should fail.
+        """
+        too_many_tags = ",".join([f"tag{i}" for i in range(10)])
+        response = self.client.post(self.url, {
+            'name': 'Tag Heavy Set',
+            'tag_names': too_many_tags
+        })

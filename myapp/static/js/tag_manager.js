@@ -19,7 +19,7 @@ class TagManager {
 
         const form = this.input.closest('form');
         form.addEventListener('submit', () => {
-            // On form submission, join tags into a comma-separated string
+            
             this.hiddenTagNames.value = this.tags.join(',');
         });
     }

@@ -86,7 +86,7 @@
             data: $(this).serialize(),
             success: function(data) {
                 alert('Rating submitted! New average rating: ' + data.average_rating.toFixed(1));
-                // Update the displayed average rating
+                // Update the average rating
                 $('h4.text-md.font-semibold').text('Rating: ' + data.average_rating.toFixed(1) + ' ⭐');
             },
             error: function() {
