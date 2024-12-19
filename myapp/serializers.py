@@ -63,9 +63,8 @@ class FlashCardSetSerializer(serializers.ModelSerializer):
 # - 'author' is nested to show who owns the collection
 # Useful for showing how sets are grouped and annotated by a user.
 class CollectionSerializer(serializers.ModelSerializer):
-    set = serializers.PrimaryKeyRelatedField(queryset=FlashCardSet.objects.all())
     author = UserSerializer(read_only=True)
 
     class Meta:
         model = Collection
-        fields = ['id', 'comment', 'set', 'author']
+        fields = ['id', 'name', 'description', 'comment', 'author']

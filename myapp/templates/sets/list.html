@@ -11,7 +11,25 @@
 {% if sets %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for set in sets %}
-            <div class="bg-white p-6 rounded-md shadow-md">
+            <div class="bg-white p-6 rounded-md shadow-md relative">
+
+                <!-- Heart icon -->
+                {% if set.id in favorite_set_ids %}
+                    <!-- Already favorited -->
+                    <button class="absolute top-2 right-2 favourite-toggle text-red-500 hover:text-red-600 focus:outline-none text-3xl"
+                            data-type="set"
+                            data-id="{{ set.id }}">
+                        ♥
+                    </button>
+                {% else %}
+                    <!-- Not favorited yet -->
+                    <button class="absolute top-2 right-2 favourite-toggle text-gray-400 hover:text-gray-500 focus:outline-none text-3xl"
+                            data-type="set"
+                            data-id="{{ set.id }}">
+                        ♥
+                    </button>
+                {% endif %}
+
                 <h2 class="text-xl font-semibold mb-2">
                     <a href="{% url 'flashcard-set-detail' set.pk %}" class="text-blue-600 hover:underline">
                         {{ set.name }}
@@ -21,12 +39,11 @@
                     Created on {{ set.createdAt|date:"F j, Y" }}
                 </p>
 
-                <!-- Display tags as badges. If the set has tags, show them. If not, show a placeholder. -->
+                <!-- Tags -->
                 <div class="mb-4">
                     {% if set.tags.all %}
                         <div class="flex flex-wrap gap-2">
                             {% for tag in set.tags.all %}
-                                <!-- Each tag appears as a styled badge -->
                                 <span class="bg-gray-200 text-gray-800 px-2 py-1 rounded text-sm">
                                     {{ tag.name }}
                                 </span>
@@ -57,4 +74,61 @@
        <a href="{% url 'flashcard-set-add' %}" class="text-blue-500 hover:underline">Create one now</a>.
     </p>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const toggleButtons = document.querySelectorAll('.favourite-toggle');
+
+    toggleButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const type = button.getAttribute('data-type');
+            const id = button.getAttribute('data-id');
+
+            fetch("{% url 'toggle-favorite' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ type, id })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.favorited) {
+                        // Now favorited
+                        button.classList.remove('text-gray-400', 'hover:text-gray-500');
+                        button.classList.add('text-red-500', 'hover:text-red-600');
+                    } else {
+                        // Removed from favorites
+                        button.classList.remove('text-red-500', 'hover:text-red-600');
+                        button.classList.add('text-gray-400', 'hover:text-gray-500');
+                    }
+                } else {
+                    alert(data.error || 'An error occurred.');
+                }
+            })
+            .catch(err => console.error(err));
+        });
+    });
+});
+
+// Utility function for CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i=0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 {% endblock %}

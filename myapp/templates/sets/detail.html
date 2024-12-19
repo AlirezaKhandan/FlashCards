@@ -45,6 +45,9 @@
     <div class="w-3/4">
         <h1 class="text-2xl font-bold mb-4">{{ set.name }}</h1>
 
+        <!-- Include flashcards JSON before we run scripts -->
+        {{ flashcards|json_script:"flashcards-data" }}
+
         <!-- Flashcard Container -->
         <div id="flashcard-container" class="my-4 p-6 border rounded-lg shadow-md relative" data-is-author="{% if user == set.author %}true{% else %}false{% endif %}">
             <!-- Flashcard content injected by JavaScript -->
@@ -69,14 +72,17 @@
                     {% if user.is_superuser or user == comment.author %}
                     <!-- Dropdown menu trigger (3 dots) -->
                     <div class="absolute top-2 right-2 inline-block text-left">
-                        <button class="inline-flex justify-center items-center w-8 h-8 rounded-full hover:bg-gray-300 focus:outline-none transition-colors duration-200" type="button">
-                            <!-- Slightly larger dots -->
+                        <!-- Added 'comment-menu-button' class here -->
+                        <button class="comment-menu-button inline-flex justify-center items-center w-8 h-8 rounded-full hover:bg-gray-300 focus:outline-none transition-colors duration-200" type="button">
+                            <!-- Make dots slightly bigger but not the container -->
                             <svg class="w-6 h-6 text-gray-700 hover:text-gray-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5h.01M12 12h.01M12 19h.01"/>
+                                <circle cx="12" cy="5" r="1" />
+                                <circle cx="12" cy="12" r="1" />
+                                <circle cx="12" cy="19" r="1" />
                             </svg>
                         </button>
                         <div class="origin-top-right absolute right-0 mt-2 w-28 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden" role="menu">
-                            <button type="button" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 comment-edit-btn" data-id="{{ comment.pk }}" data-content="{{ comment.content }}">
+                            <button type="button" class="comment-edit-btn block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" data-id="{{ comment.pk }}" data-content="{{ comment.content }}">
                                 Edit
                             </button>
                             <form action="{% url 'comment-delete' comment.pk %}" method="post">
@@ -127,12 +133,11 @@
         </form>
     </div>
 </div>
+{% endblock %}
 
-<!-- Include JavaScript Data -->
-{{ flashcards|json_script:"flashcards-data" }}
-
+{% block scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-    // Flashcard navigation and display logic
     const flashcards = JSON.parse(document.getElementById('flashcards-data').textContent);
     let currentIndex = 0;
     let showingAnswer = false;
@@ -216,7 +221,7 @@
 
     renderFlashcard();
 
-    // AJAX for Rating Submission
+    // Rating submission AJAX
     $('#rating-form').on('submit', function(e) {
         e.preventDefault();
         $.ajax({
@@ -241,17 +246,27 @@
         }
     });
 
-    // Dropdown menu for comments
+    // Dropdown menus for comments
     document.addEventListener('click', function(event) {
-        const button = event.target.closest('button');
-        const menus = document.querySelectorAll('.origin-top-right[role="menu"]');
-        menus.forEach(menu => {
-            if (button && menu.parentElement.contains(button)) {
-                menu.classList.toggle('hidden');
-            } else {
-                menu.classList.add('hidden');
-            }
-        });
+        const menuButton = event.target.closest('.comment-menu-button');
+        const allMenus = document.querySelectorAll('.origin-top-right[role="menu"]');
+
+        if (menuButton) {
+            // Find the nearest menu to this button
+            const menuContainer = menuButton.parentElement;
+            const menu = menuContainer.querySelector('.origin-top-right[role="menu"]');
+            // Hide other menus
+            allMenus.forEach(m => {
+                if (m !== menu) {
+                    m.classList.add('hidden');
+                }
+            });
+            // Toggle this one
+            if (menu) menu.classList.toggle('hidden');
+        } else {
+            // Click outside all menus: hide them
+            allMenus.forEach(m => m.classList.add('hidden'));
+        }
     });
 
     // Edit comment modal logic
@@ -262,7 +277,8 @@
     const editCommentContentTextarea = document.getElementById('edit-comment-content');
 
     document.querySelectorAll('.comment-edit-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent closing menus
             const commentId = btn.getAttribute('data-id');
             const commentContent = btn.getAttribute('data-content');
             editCommentIDInput.value = commentId;

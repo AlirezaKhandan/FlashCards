@@ -25,7 +25,7 @@ from .forms import FlashCardSetForm, FlashCardForm, CustomUserCreationForm, Coll
 from .utils import get_average_rating
 from django.db.models import Q
 from django.contrib.auth import authenticate
-
+from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -33,7 +33,7 @@ from rest_framework import status
 from django.shortcuts import redirect
 from django.urls import reverse
 import random
-
+from rest_framework.exceptions import ValidationError
 from django.contrib.contenttypes.models import ContentType
 from .forms import CommentForm
 from django.db.models import Avg
@@ -74,11 +74,6 @@ def user_registration_view(request):
 
 
 @login_required
-# Just renders a page that shows some info about models.
-# Could be more descriptive or removed if not needed.
-def models_overview(request):
-    
-    return render(request, 'models.html')
 
 # Renders a "registration success" page after a new user signs up.
 # Simple confirmation view.
@@ -177,13 +172,22 @@ def can_create_item(user, daily_field, limit_field, item_type_str):
 # Lists all flashcard sets for the currently logged-in user.
 # Straightforward: fetches sets authored by the user and displays them.
 class FlashCardSetListView(LoginRequiredMixin, ListView):
-    """List all flashcard sets for the logged-in user."""
     model = FlashCardSet
     template_name = 'sets/list.html'
     context_object_name = 'sets'
 
     def get_queryset(self):
         return FlashCardSet.objects.filter(author=self.request.user)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from django.contrib.contenttypes.models import ContentType
+        set_ct = ContentType.objects.get_for_model(FlashCardSet)
+        favorite_entries = UserFavorite.objects.filter(user=self.request.user, content_type=set_ct)
+        favorite_set_ids = set(favorite_entries.values_list('object_id', flat=True))
+        context['favorite_set_ids'] = favorite_set_ids
+        return context
+
 
 
 # Allows a user to create a new flashcard set.
@@ -194,38 +198,27 @@ class FlashCardSetCreateView(LoginRequiredMixin, CreateView):
     template_name = 'sets/add.html'
 
     def form_valid(self, form):
-        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            today = timezone.now().date()
-            user_daily, _ = UserDailyCreation.objects.get_or_create(user=self.request.user, date=today)
-            creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
+        today = timezone.now().date()
+        user = self.request.user
+        user_daily, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
+        creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
 
-            if user_daily.sets_created >= creation_limit.daily_set_limit and not self.request.user.is_superuser:
-                next_reset = (timezone.now() + timedelta(hours=1)).strftime("%H:%M %p")
-                return JsonResponse({
-                    'detail': f"You have reached your hourly set creation limit ({creation_limit.daily_set_limit}). You can create more sets after {next_reset}."
-                }, status=429)
-            
-            approaching_limit = (creation_limit.daily_set_limit - user_daily.sets_created) <= (creation_limit.daily_set_limit // 2)
+        # Check daily set limit
+        if user_daily.sets_created >= creation_limit.daily_set_limit and not user.is_superuser:
+            messages.error(self.request, f"You have reached the daily limit of {creation_limit.daily_set_limit} sets.")
+            return self.form_invalid(form)
+        
+        # If passed the check, create the set
+        obj = form.save(commit=False)
+        obj.author = user
+        obj.save()
 
-            self.object = form.save(commit=False)
-            self.object.author = self.request.user
-            self.object.save()
-            user_daily.sets_created += 1
-            user_daily.save()
+        # Increment daily count
+        user_daily.sets_created += 1
+        user_daily.save()
 
-            data = {'detail': "Created successfully!", 'redirect_url': reverse('flashcard-set-list')}
-            if approaching_limit and user_daily.sets_created < creation_limit.daily_set_limit:
-                left = creation_limit.daily_set_limit - user_daily.sets_created
-                data['warning'] = f"You are approaching your hourly set limit. Only {left} set(s) left before the next reset."
-
-            return JsonResponse(data, status=200)
-        else:
-            return super().form_valid(form)
-
-    def form_invalid(self, form):
-        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'detail': "Validation error", 'errors': form.errors}, status=400)
-        return super().form_invalid(form)
+        # Redirect to sets list after creation
+        return HttpResponseRedirect(reverse('flashcard-set-list'))
 
 
 
@@ -304,47 +297,30 @@ class FlashCardCreateView(LoginRequiredMixin, CreateView):
     form_class = FlashCardForm
     template_name = 'cards/add.html'
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['pk'])
-        context['set'] = flashcard_set
-        return context
-
     def form_valid(self, form):
-        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            user = self.request.user
-            today = timezone.now().date()
-            user_daily_creation, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
-            creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
-            flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['pk'])
+        flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['pk'])
+        user = self.request.user
+        today = timezone.now().date()
+        user_daily, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
+        creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
 
-            if user_daily_creation.flashcards_created >= creation_limit.daily_flashcard_limit and not user.is_superuser:
-                next_reset = (timezone.now() + timedelta(hours=1)).strftime("%H:%M %p")
-                return JsonResponse({
-                    'detail': f"You have reached your hourly flashcard creation limit ({creation_limit.daily_flashcard_limit}). You can create more flashcards after {next_reset}."
-                }, status=429)
-            
-            approaching_limit = (creation_limit.daily_flashcard_limit - user_daily_creation.flashcards_created) <= (creation_limit.daily_flashcard_limit // 2)
+        # Check daily flashcard limit
+        if user_daily.flashcards_created >= creation_limit.daily_flashcard_limit and not user.is_superuser:
+            messages.error(self.request, f"You have reached the daily limit of {creation_limit.daily_flashcard_limit} flashcards.")
+            return self.form_invalid(form)
 
-            self.object = form.save(commit=False)
-            self.object.set = flashcard_set
-            self.object.save()
-            user_daily_creation.flashcards_created += 1
-            user_daily_creation.save()
+        # Create the flashcard
+        obj = form.save(commit=False)
+        obj.set = flashcard_set
+        obj.save()
 
-            data = {'detail': "Created successfully!"}
-            if approaching_limit and user_daily_creation.flashcards_created < creation_limit.daily_flashcard_limit:
-                left = creation_limit.daily_flashcard_limit - user_daily_creation.flashcards_created
-                data['warning'] = f"You are approaching your hourly flashcard limit. Only {left} flashcard(s) left before the next reset."
+        # Increment daily count
+        user_daily.flashcards_created += 1
+        user_daily.save()
 
-            return JsonResponse(data, status=200)
-        else:
-            return super().form_valid(form)
+        # Redirect to the add_more page after creation
+        return HttpResponseRedirect(reverse('flashcard-add-more', kwargs={'pk': flashcard_set.pk}))
 
-    def form_invalid(self, form):
-        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'detail': "Validation error", 'errors': form.errors}, status=400)
-        return super().form_invalid(form)
 
 
 
@@ -361,46 +337,8 @@ class FlashCardUpdateView(LoginRequiredMixin, UpdateView):
 
 
 # API Views
-class FlashCardSetList(APIView, PageNumberPagination):
-    # This old API was previously enforcing daily limit using old logic.
-    # Currently not in use after refactoring. If needed, update to new logic or remove
-    # TODO: Update or remove this legacy endpoint. It's referencing daily_limit which no longer exists.
-    def post(self, request):
-        user_limit = request.user.daily_limit
-        user_limit.reset_if_needed()
-        if user_limit.sets_created_today >= 5:
-            return Response(
-                {'error': 'You have reached the daily limit of 5 flashcard sets.'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS
-            )
-        serializer = FlashCardSetSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(author=request.user)
-            user_limit.sets_created_today += 1
-            user_limit.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# TODO: Update to new logic or remove if not needed.
-class FlashCardList(APIView, PageNumberPagination):
-    def post(self, request, pk):
-        user_limit = request.user.daily_limit
-        user_limit.reset_if_needed()
-        if user_limit.flashcards_created_today >= 50:
-            return Response(
-                {'error': 'You have reached the daily limit of 50 flashcards.'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS
-            )
-        flashcard_set = get_object_or_404(FlashCardSet, pk=pk, author=request.user)
-        data = request.data
-        data['set'] = pk
-        serializer = FlashCardSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            user_limit.flashcards_created_today += 1
-            user_limit.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 # Returns all comments for a given set ID.
 # Likely needs updating to reflect the new generic comment structure if required.
@@ -612,37 +550,29 @@ class CollectionCreateView(LoginRequiredMixin, CreateView):
     template_name = 'collections/create.html'
 
     def form_valid(self, form):
-        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            today = timezone.now().date()
-            user_daily, _ = UserDailyCreation.objects.get_or_create(user=self.request.user, date=today)
-            creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
+        user = self.request.user
+        today = timezone.now().date()
+        user_daily, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
+        creation_limit, _ = CreationLimit.objects.get_or_create(pk=1)
 
-            if user_daily.collections_created >= creation_limit.daily_collection_limit and not self.request.user.is_superuser:
-                next_reset = (timezone.now() + timedelta(hours=1)).strftime("%H:%M %p")
-                return JsonResponse({
-                    'detail': f"You have reached your hourly collection creation limit ({creation_limit.daily_collection_limit}). You can create more collections after {next_reset}."
-                }, status=429)
+        # Check daily collection limit
+        if user_daily.collections_created >= creation_limit.daily_collection_limit and not user.is_superuser:
+            messages.error(self.request, f"You have reached the daily limit of {creation_limit.daily_collection_limit} collections.")
+            return self.form_invalid(form)
 
-            approaching_limit = (creation_limit.daily_collection_limit - user_daily.collections_created) <= (creation_limit.daily_collection_limit // 2)
+        # Create the collection
+        obj = form.save(commit=False)
+        obj.author = user
+        obj.save()
 
-            self.object = form.save(commit=False)
-            self.object.author = self.request.user
-            self.object.save()
-            user_daily.collections_created += 1
-            user_daily.save()
+        # Increment daily count
+        user_daily.collections_created += 1
+        user_daily.save()
 
-            data = {'detail': "Created successfully!", 'redirect_url': reverse('collection-list')}
-            if approaching_limit and user_daily.collections_created < creation_limit.daily_collection_limit:
-                left = creation_limit.daily_collection_limit - user_daily.collections_created
-                data['warning'] = f"You are approaching your hourly collection limit. Only {left} collection(s) left before the next reset."
-
-            return JsonResponse(data, status=200)
-        else:
-            return super().form_valid(form)
+        # Redirect to collections list after creation
+        return HttpResponseRedirect(reverse('collection-list'))
 
     def form_invalid(self, form):
-        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'detail': "Validation error", 'errors': form.errors}, status=400)
         return super().form_invalid(form)
 
 
@@ -722,22 +652,31 @@ class FlashCardSetListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = FlashCardSetSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
-    # Checks the daily set limit before creating a new set.
     def perform_create(self, serializer):
-        today = timezone.now().date()
         user = self.request.user
-        user_daily_creation, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
-
-        # Fetch the creation limit directly
+        today = timezone.now().date()
+        user_daily, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
         creation_limit = CreationLimit.objects.get(pk=1)
 
-        if user_daily_creation.sets_created >= creation_limit.daily_set_limit and not user.is_superuser:
-            raise Throttled(detail='You have reached the daily limit of {} flashcard sets.'.format(creation_limit.daily_set_limit))
-        
-        # If not exceeded
-        serializer.save(author=user)
-        user_daily_creation.sets_created += 1
-        user_daily_creation.save()
+        if user_daily.sets_created >= creation_limit.daily_set_limit and not user.is_superuser:
+            raise Throttled(detail=f"You have reached the daily limit of {creation_limit.daily_set_limit} sets.")
+
+        tag_names = self.request.data.get('tag_names', '')
+        tag_list = [t.strip() for t in tag_names.split(',') if t.strip()]
+        if len(tag_list) > 8:
+            raise ValidationError("A set cannot have more than 8 tags.")
+
+        set_obj = serializer.save(author=user)
+        user_daily.sets_created += 1
+        user_daily.save()
+
+        # Assign tags
+        from .models import Tag
+        tags = []
+        for name in tag_list:
+            tag_obj, created = Tag.objects.get_or_create(name=name)
+            tags.append(tag_obj)
+        set_obj.tags.set(tags)
 
 
 # Retrieves, updates, or deletes a single flashcard set.
@@ -749,10 +688,7 @@ class FlashCardSetRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPI
 
     def perform_update(self, serializer):
         if self.request.user != self.get_object().author:
-            return Response(
-                {'error': 'You are not allowed to update this flashcard set.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            raise PermissionDenied('You are not allowed to update this flashcard set.')
         serializer.save()
 
     def perform_destroy(self, instance):
@@ -762,6 +698,7 @@ class FlashCardSetRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPI
                 status=status.HTTP_403_FORBIDDEN
             )
         instance.delete()
+
 
 
 
@@ -893,7 +830,18 @@ class CollectionListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        user = self.request.user
+        today = timezone.now().date()
+        user_daily, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
+        creation_limit = CreationLimit.objects.get(pk=1)
+
+        if user_daily.collections_created >= creation_limit.daily_collection_limit and not user.is_superuser:
+            raise Throttled(detail=f"You have reached the daily limit of {creation_limit.daily_collection_limit} collections.")
+
+        # No sets required, no comment required; just save it
+        serializer.save(author=user)
+        user_daily.collections_created += 1
+        user_daily.save()
 
 # Redirects to a random collection's detail page if collections exist.
 # Otherwise returns a 404.
@@ -1004,3 +952,34 @@ class UserFavouritesView(LoginRequiredMixin, TemplateView):
         favourite_sets = FlashCardSet.objects.filter(pk__in=set_ids)
         context['favourite_sets'] = favourite_sets
         return context
+    
+
+
+class ToggleFavoriteView(LoginRequiredMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        item_type = request.data.get('type')
+        item_id = request.data.get('id')
+
+        if not item_type or not item_id:
+            return Response({'success': False, 'error': 'Missing type or id'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if item_type != 'set':
+            return Response({'success': False, 'error': 'Invalid type'}, status=status.HTTP_400_BAD_REQUEST)
+
+        obj = get_object_or_404(FlashCardSet, pk=item_id)
+        content_type = ContentType.objects.get_for_model(FlashCardSet)
+
+        favorite_entry = UserFavorite.objects.filter(
+            user=request.user, content_type=content_type, object_id=obj.id
+        )
+
+        if favorite_entry.exists():
+            # Already favorite, so remove it
+            favorite_entry.delete()
+            return Response({'success': True, 'favorited': False}, status=status.HTTP_200_OK)
+        else:
+            # Not a favorite, add it
+            UserFavorite.objects.create(user=request.user, content_type=content_type, object_id=obj.id)
+            return Response({'success': True, 'favorited': True}, status=status.HTTP_200_OK)

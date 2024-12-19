@@ -58,8 +58,9 @@ class FlashCard(models.Model):
 
 class Collection(models.Model):
     """Model representing a collection of flashcard sets by a user."""
-    name = models.CharField(max_length=255, default='Untitled Collection')
+    name = models.CharField(max_length=255, default='')
     description = models.TextField(blank=True, null=True)
+    comment = models.TextField(blank=True, null=True)
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,

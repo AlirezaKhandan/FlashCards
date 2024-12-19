@@ -4,7 +4,6 @@ from django.contrib.auth import views as auth_views
 from .views import (
     # Core Views
     home_view,
-    models_overview,
     version,
     user_registration_view,
     registration_success,
@@ -56,6 +55,7 @@ from .views import (
     AddToFavoritesView,
     UserFavouritesView,
     CommentUpdateView,
+    ToggleFavoriteView,
 
     # Rating
     RateItemView,
@@ -64,7 +64,6 @@ from .views import (
 urlpatterns = [
     # Home and general views
     path('', home_view, name='home'),
-    path('models/', models_overview, name='models-overview'),
     path('registration-success/', registration_success, name='registration-success'),
 
     # Authentication
@@ -101,6 +100,8 @@ urlpatterns = [
     path('sets/<int:pk>/add-to-collection/', AddSetToCollection.as_view(), name='add-set-to-collection'),
     path('sets/<int:pk>/remove-from-collection/', RemoveSetFromCollection.as_view(), name='remove-set-from-collection'),
     path('sets/addtofav/', AddToFavoritesView.as_view(), name='api-add-favorite'),
+    path('sets/togglefav/', ToggleFavoriteView.as_view(), name='toggle-favorite'),
+
 
     # Search and Browse
     path('search/', SearchView.as_view(), name='search'),
