@@ -10,7 +10,7 @@
             {{ form.errors }}
         </div>
     {% endif %}
-    <form method="post" action="{% url 'flashcard-add' set.pk %}" class="space-y-4 ajax-form">
+    <form method="post" action="{% url 'flashcard-add' set.pk %}" class="space-y-4">
         {% csrf_token %}
         {{ form.question.label_tag }}<br>
         {{ form.question }}

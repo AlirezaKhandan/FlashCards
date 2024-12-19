@@ -1,0 +1,486 @@
+openapi: 3.0.3
+info:
+  title: FlashCard & Collections API
+  version: "1.0.0"
+  description: |
+    This API allows users to:
+    - Create and manage FlashCardSets and FlashCards
+    - Create and manage Collections of sets
+    - Add comments to sets
+    - Rate sets or flashcards
+    - Search for sets, collections, tags, and users
+    - Manage user accounts
+
+servers:
+  - url: https://api.example.com/
+    description: Production server
+
+tags:
+  - name: Authentication
+  - name: Users
+  - name: FlashCardSets
+  - name: FlashCards
+  - name: Collections
+  - name: Comments
+  - name: Ratings
+  - name: Search
+
+paths:
+  /api/:
+    get:
+      summary: Get API version
+      operationId: getApiVersion
+      tags: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+  /api/users/:
+    get:
+      summary: List all users
+      operationId: listUsers
+      tags: [Users]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: 
+                  $ref: '#/components/schemas/User'
+    post:
+      summary: Create a new user
+      operationId: createUser
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/users/{userId}/:
+    get:
+      summary: Retrieve a user by ID
+      operationId: getUser
+      tags: [Users]
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    put:
+      summary: Update a user
+      operationId: updateUser
+      tags: [Users]
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        "200":
+          description: OK
+    delete:
+      summary: Delete a user
+      operationId: deleteUser
+      tags: [Users]
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: No Content
+
+  /api/sets/:
+    get:
+      summary: List all flashcard sets
+      operationId: listFlashCardSets
+      tags: [FlashCardSets]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FlashCardSet'
+    post:
+      summary: Create a new flashcard set
+      operationId: createFlashCardSet
+      tags: [FlashCardSets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlashCardSetCreate'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashCardSet'
+
+  /api/sets/{pk}/:
+    get:
+      summary: Retrieve a flashcard set by ID
+      operationId: getFlashCardSet
+      tags: [FlashCardSets]
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/FlashCardSet'
+    put:
+      summary: Update a flashcard set
+      operationId: updateFlashCardSet
+      tags: [FlashCardSets]
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlashCardSetCreate'
+      responses:
+        "200":
+          description: OK
+    delete:
+      summary: Delete a flashcard set
+      operationId: deleteFlashCardSet
+      tags: [FlashCardSets]
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: No Content
+
+  /api/sets/{pk}/cards/:
+    get:
+      summary: List flashcards in a set
+      operationId: listFlashCards
+      tags: [FlashCards]
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FlashCard'
+    post:
+      summary: Create a flashcard in a set
+      operationId: createFlashCard
+      tags: [FlashCards]
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlashCardCreate'
+      responses:
+        "201":
+          description: Created
+
+  /api/sets/{pk}/comments/:
+    get:
+      summary: List comments on a set
+      operationId: listCommentsOnSet
+      tags: [Comments]
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+    post:
+      summary: Create a comment on a set
+      operationId: createCommentOnSet
+      tags: [Comments]
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+
+  /api/collections/:
+    get:
+      summary: List all collections
+      operationId: listCollections
+      tags: [Collections]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Collection'
+    post:
+      summary: Create a collection
+      operationId: createCollection
+      tags: [Collections]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionCreate'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+
+  /api/collections/random/:
+    get:
+      summary: Redirect to a random collection detail
+      operationId: randomCollectionRedirect
+      tags: [Collections]
+      responses:
+        "302":
+          description: Found (Redirect)
+        "404":
+          description: Not Found
+
+  /rate/:
+    post:
+      summary: Rate an item (set or flashcard)
+      operationId: rateItem
+      tags: [Ratings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model:
+                  type: string
+                  enum: [flashcardset, flashcard]
+                object_id:
+                  type: integer
+                score:
+                  type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  average_rating:
+                    type: number
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        admin:
+          type: boolean
+
+    UserUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    FlashCardSet:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        author:
+          $ref: '#/components/schemas/User'
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlashCard'
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+
+    FlashCardSetCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        tag_names:
+          type: string
+          description: Comma-separated tags
+
+    FlashCard:
+      type: object
+      properties:
+        id:
+          type: integer
+        question:
+          type: string
+        answer:
+          type: string
+        difficulty:
+          type: string
+
+    FlashCardCreate:
+      type: object
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+        difficulty:
+          type: string
+          enum: [Easy, Medium, Hard]
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+        content:
+          type: string
+        author:
+          $ref: '#/components/schemas/User'
+
+    CommentCreate:
+      type: object
+      properties:
+        content:
+          type: string
+
+    Collection:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        comment:
+          type: string
+        author:
+          $ref: '#/components/schemas/User'
+
+    CollectionCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string

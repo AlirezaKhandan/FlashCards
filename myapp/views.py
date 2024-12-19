@@ -1,53 +1,73 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required
-from django.utils.decorators import method_decorator
-from django.utils.timezone import timedelta
-from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView, TemplateView
-from django.views import View  # Import View for the create view
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import JsonResponse
-from django.http import JsonResponse, HttpResponseRedirect
-from django.utils.timezone import now
-from django.contrib.auth import login
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
-from rest_framework import status
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.exceptions import Throttled
-from rest_framework.permissions import IsAuthenticated
-from .models import FlashCardSet, FlashCard, Comment, Collection, User, Rating, UserFavorite, Tag
-from .serializers import FlashCardSetSerializer, FlashCardSerializer, CommentSerializer, CollectionSerializer, UserSerializer
-from .forms import FlashCardSetForm, FlashCardForm, CustomUserCreationForm, CollectionForm
-from .utils import get_average_rating
-from django.db.models import Q
-from django.contrib.auth import authenticate
-from rest_framework.exceptions import PermissionDenied
-from rest_framework import generics, permissions
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.shortcuts import redirect
-from django.urls import reverse
+# Standard library imports
 import random
-from rest_framework.exceptions import ValidationError
-from django.contrib.contenttypes.models import ContentType
-from .forms import CommentForm
-from django.db.models import Avg
-
-from django.utils import timezone
+import json
+# Django imports
 from django.contrib import messages
-from .models import CreationLimit, UserDailyCreation
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.contenttypes.models import ContentType
+from django.db.models import Avg, Q
+from django.http import JsonResponse, HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.utils.timezone import now, timedelta
+from django.views import View
+from django.views.generic import (
+    CreateView, 
+    DeleteView, 
+    DetailView, 
+    ListView, 
+    TemplateView, 
+    UpdateView,
+)
+
+# Django REST framework imports
+from rest_framework import generics, permissions, status
+from rest_framework.decorators import api_view
+from rest_framework.exceptions import PermissionDenied, Throttled, ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+# Local app imports
+from .forms import (
+    CommentForm, 
+    CollectionForm, 
+    CustomUserCreationForm, 
+    FlashCardForm, 
+    FlashCardSetForm,
+)
+from .models import (
+    Collection, 
+    Comment, 
+    CreationLimit, 
+    FlashCard, 
+    FlashCardSet, 
+    Rating, 
+    Tag, 
+    User, 
+    UserDailyCreation, 
+    UserFavorite,
+)
+from .serializers import (
+    CollectionSerializer, 
+    CommentSerializer, 
+    FlashCardSerializer, 
+    FlashCardSetSerializer, 
+    UserSerializer,
+)
+from .utils import get_average_rating
+
 
 
 
 
 # Renders the homepage. If the user is logged in, show their most recent sets.
 # Otherwise, show a general landing page.
-# Potential improvement: Could show public sets or a welcome message for guests
 def home_view(request):
     
     if request.user.is_authenticated:
@@ -88,8 +108,6 @@ def version(request):
     # Used by the frontend footer or any client wanting API version info.
     return Response({"version": "1.0.0"})
 
-
-
 def reset_limits_if_needed(user_daily):
     one_hour_ago = now() - timezone.timedelta(hours=1)
     if user_daily.last_reset < one_hour_ago:
@@ -115,7 +133,7 @@ def within_limit(user_daily, creation_limit, item_type):
     if created >= limit:
         return False, f"You have reached your hourly {item_type} creation limit."
     else:
-        # Warn if user is nearing limit (half or less remaining)
+        # Warn if user is nearing limit 
         remaining = limit - created
         threshold = limit // 2
         warning_msg = None
@@ -170,7 +188,6 @@ def can_create_item(user, daily_field, limit_field, item_type_str):
 
 
 # Lists all flashcard sets for the currently logged-in user.
-# Straightforward: fetches sets authored by the user and displays them.
 class FlashCardSetListView(LoginRequiredMixin, ListView):
     model = FlashCardSet
     template_name = 'sets/list.html'
@@ -191,7 +208,6 @@ class FlashCardSetListView(LoginRequiredMixin, ListView):
 
 
 # Allows a user to create a new flashcard set.
-# Enforces daily creation limits via UserDailyCreation and CreationLimit.
 class FlashCardSetCreateView(LoginRequiredMixin, CreateView):
     model = FlashCardSet
     form_class = FlashCardSetForm
@@ -258,13 +274,13 @@ class FlashCardSetDetailView(LoginRequiredMixin, DetailView):
         # Retrieve flashcards with 'id', 'question', 'answer', and now 'difficulty' to ensure the difficulty level is available in the JSON data
         context['flashcards'] = list(self.object.cards.values('id', 'question', 'answer', 'difficulty'))
 
-        # Retrieve comments for display, ensuring that comments related to this set are shown
+        # Retrieve comments for display
         content_type = ContentType.objects.get_for_model(FlashCardSet)
         comments = Comment.objects.filter(content_type=content_type, object_id=self.object.id).order_by('-created_at')
         context['comments'] = comments
         context['comment_form'] = CommentForm()
 
-        # Calculate the average rating to provide user feedback on overall quality
+        # Calculate the average rating 
         average_rating = Rating.objects.filter(content_type=content_type, object_id=self.object.id).aggregate(Avg('score'))['score__avg'] or 0
         context['average_rating'] = round(average_rating, 1)
 
@@ -297,8 +313,17 @@ class FlashCardCreateView(LoginRequiredMixin, CreateView):
     form_class = FlashCardForm
     template_name = 'cards/add.html'
 
+    def dispatch(self, request, *args, **kwargs):
+        self.flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['pk'], author=self.request.user)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Provide the flashcard set in the context so the template can access it
+        context['set'] = self.flashcard_set
+        return context
+
     def form_valid(self, form):
-        flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['pk'])
         user = self.request.user
         today = timezone.now().date()
         user_daily, _ = UserDailyCreation.objects.get_or_create(user=user, date=today)
@@ -311,7 +336,7 @@ class FlashCardCreateView(LoginRequiredMixin, CreateView):
 
         # Create the flashcard
         obj = form.save(commit=False)
-        obj.set = flashcard_set
+        obj.set = self.flashcard_set
         obj.save()
 
         # Increment daily count
@@ -319,7 +344,8 @@ class FlashCardCreateView(LoginRequiredMixin, CreateView):
         user_daily.save()
 
         # Redirect to the add_more page after creation
-        return HttpResponseRedirect(reverse('flashcard-add-more', kwargs={'pk': flashcard_set.pk}))
+        return HttpResponseRedirect(reverse('flashcard-add-more', kwargs={'pk': self.flashcard_set.pk}))
+
 
 
 
@@ -341,7 +367,6 @@ class FlashCardUpdateView(LoginRequiredMixin, UpdateView):
 
 
 # Returns all comments for a given set ID.
-# Likely needs updating to reflect the new generic comment structure if required.
 class CommentList(APIView):
     
     def get(self, request, pk):
@@ -377,7 +402,6 @@ class CommentDeleteView(LoginRequiredMixin, DeleteView):
         return qs.filter(author=self.request.user)
 
     def get_success_url(self):
-        # Attempt to get flashcard_set from either the old field or content_object
         flashcard_set = self.object.flashcard_set
         if not flashcard_set:
             # If flashcard_set is None, comment should have a content_object that's a FlashCardSet
@@ -385,7 +409,6 @@ class CommentDeleteView(LoginRequiredMixin, DeleteView):
                 flashcard_set = self.object.content_object
         if flashcard_set:
             return reverse_lazy('flashcard-set-detail', kwargs={'pk': flashcard_set.id})
-        # Fallback if something unexpected happens
         return reverse_lazy('flashcard-set-list')
 
 
@@ -403,7 +426,6 @@ class CommentUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         self.object = form.save(commit=False)
-        # Optionally enforce max length of 1000 chars server-side
         if len(self.object.content) > 1000:
             form.add_error('content', "Comment cannot exceed 1000 characters.")
             return self.form_invalid(form)
@@ -411,7 +433,7 @@ class CommentUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        # Similar logic as delete to redirect correctly
+
         flashcard_set = self.object.flashcard_set
         if not flashcard_set and self.object.content_object and isinstance(self.object.content_object, FlashCardSet):
             flashcard_set = self.object.content_object
@@ -577,7 +599,6 @@ class CollectionCreateView(LoginRequiredMixin, CreateView):
 
 
 # Deletes a collection.
-# If `delete_sets` is checked, deletes all sets in the collection too.
 class CollectionDeleteView(LoginRequiredMixin, DeleteView):
     
     model = Collection
@@ -595,7 +616,6 @@ class CollectionDeleteView(LoginRequiredMixin, DeleteView):
         self.object = self.get_object()
         delete_sets = request.POST.get('delete_sets') == 'on'
         if delete_sets:
-            # Delete all sets in the collection
             self.object.sets.all().delete()
         return super().post(request, *args, **kwargs)
 
@@ -615,6 +635,32 @@ class CollectionUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_queryset(self):
         return Collection.objects.filter(author=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get all sets owned by this user
+        owned_sets = FlashCardSet.objects.filter(author=self.request.user)
+        # Get current collection
+        collection = self.object
+        
+        # Determine which sets are currently in this collection
+        selected_set_ids = collection.sets.values_list('id', flat=True) if collection else []
+        
+        context['owned_sets'] = owned_sets
+        context['selected_set_ids'] = selected_set_ids
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        # After saving the collection, handle the sets
+        selected_sets = self.request.POST.getlist('selected_sets')  # list of set IDs from the form
+        # Filter the sets that the user owns and were selected
+        updated_sets = FlashCardSet.objects.filter(author=self.request.user, id__in=selected_sets)
+        
+        # Update the collection sets
+        self.object.sets.set(updated_sets)
+        
+        return response
 
     def get_success_url(self):
         return reverse_lazy('collection-list')
@@ -750,7 +796,7 @@ class FlashCardRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIVie
 
 
 # Lists comments for a given set and allows creating new ones.
-# TODO: Update to handle generic comments if necessary.
+
 class CommentListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
@@ -770,13 +816,11 @@ class CommentListCreateAPIView(generics.ListCreateAPIView):
 
 
 # Lists all users and creates new users.
-# For user creation, ensure proper password handling and error responses.
 class UserListCreateAPIView(generics.ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-# Retrieves, updates, or deletes a user by ID.
-# Restrict certain fields (like admin status) to admin-only modifications.
+
 class UserRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -983,3 +1027,20 @@ class ToggleFavoriteView(LoginRequiredMixin, APIView):
             # Not a favorite, add it
             UserFavorite.objects.create(user=request.user, content_type=content_type, object_id=obj.id)
             return Response({'success': True, 'favorited': True}, status=status.HTTP_200_OK)
+
+
+class StudyModeView(LoginRequiredMixin, TemplateView):
+    """Displays flashcards in study mode where the user can guess the answer."""
+    template_name = 'sets/study.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        flashcard_set = get_object_or_404(FlashCardSet, pk=self.kwargs['pk'])
+
+        # Fetch flashcards from this set
+        flashcards = list(flashcard_set.cards.values('question', 'answer'))
+
+        # Convert flashcards to JSON so we can use them easily in JS
+        context['flashcards_json'] = json.dumps(flashcards)
+        context['set'] = flashcard_set
+        return context

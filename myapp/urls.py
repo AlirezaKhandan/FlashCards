@@ -56,9 +56,10 @@ from .views import (
     UserFavouritesView,
     CommentUpdateView,
     ToggleFavoriteView,
+    StudyModeView,
 
     # Rating
-    RateItemView,
+    RateItemView
 )
 
 urlpatterns = [
@@ -101,6 +102,8 @@ urlpatterns = [
     path('sets/<int:pk>/remove-from-collection/', RemoveSetFromCollection.as_view(), name='remove-set-from-collection'),
     path('sets/addtofav/', AddToFavoritesView.as_view(), name='api-add-favorite'),
     path('sets/togglefav/', ToggleFavoriteView.as_view(), name='toggle-favorite'),
+    path('sets/<int:pk>/study/', StudyModeView.as_view(), name='study-mode'),
+
 
 
     # Search and Browse

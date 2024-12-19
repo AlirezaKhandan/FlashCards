@@ -1,10 +1,9 @@
-// search.js
 document.addEventListener('DOMContentLoaded', () => {
     // Handle Add buttons for sets and collections
     const addButtons = document.querySelectorAll('.add-button');
     addButtons.forEach(button => {
         button.addEventListener('click', () => {
-            const type = button.getAttribute('data-type'); // 'set' or 'collection'
+            const type = button.getAttribute('data-type'); 
             const id = button.getAttribute('data-id');
 
             
@@ -55,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Utility function for CSRF token stays the same
+
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
