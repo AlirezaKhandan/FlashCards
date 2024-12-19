@@ -10,6 +10,7 @@ info:
     - Rate sets or flashcards
     - Search for sets, collections, tags, and users
     - Manage user accounts
+    - Add or toggle favorites (sets or collections)
 
 servers:
   - url: https://api.example.com/
@@ -371,6 +372,91 @@ paths:
                   average_rating:
                     type: number
 
+  /sets/addtofav/:
+    post:
+      summary: Add a set or collection to favorites
+      operationId: addToFavorites
+      tags: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [set, collection]
+                id:
+                  type: integer
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+
+  /sets/togglefav/:
+    post:
+      summary: Toggle favorite status of a set
+      operationId: toggleFavorite
+      tags: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [set]
+                id:
+                  type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  favorited:
+                    type: boolean
+                    description: Indicates if the set is now favorited
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+
+
 components:
   schemas:
     User:
@@ -422,7 +508,7 @@ components:
           type: string
         tag_names:
           type: string
-          description: Comma-separated tags
+          description: Comma-separated tags (max 8 tags)
 
     FlashCard:
       type: object
@@ -435,6 +521,7 @@ components:
           type: string
         difficulty:
           type: string
+          enum: [Easy, Medium, Hard]
 
     FlashCardCreate:
       type: object

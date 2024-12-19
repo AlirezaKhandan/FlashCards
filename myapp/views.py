@@ -187,7 +187,7 @@ def can_create_item(user, daily_field, limit_field, item_type_str):
 
 
 
-# Lists all flashcard sets for the currently logged-in user.
+# This view displays a list of all flashcard sets owned by the current user, providing a quick overview of their materials.
 class FlashCardSetListView(LoginRequiredMixin, ListView):
     model = FlashCardSet
     template_name = 'sets/list.html'
@@ -207,7 +207,7 @@ class FlashCardSetListView(LoginRequiredMixin, ListView):
 
 
 
-# Allows a user to create a new flashcard set.
+# This view allows the user to create a new flashcard set, enforcing daily creation limits and providing feedback if exceeded.
 class FlashCardSetCreateView(LoginRequiredMixin, CreateView):
     model = FlashCardSet
     form_class = FlashCardSetForm
@@ -242,6 +242,8 @@ class FlashCardSetCreateView(LoginRequiredMixin, CreateView):
 
 # Lets a user delete their own flashcard sets.
 # Restricts deletion to sets authored by the current user.
+# This view handles the deletion of a flashcard set, ensuring that only the set's owner can remove it.
+
 class FlashCardSetDeleteView(LoginRequiredMixin, DeleteView):
     model = FlashCardSet
     success_url = reverse_lazy('flashcard-set-list')
@@ -262,6 +264,8 @@ class FlashCardDeleteView(LoginRequiredMixin, DeleteView):
 
 # Shows details of a single flashcard set, including flashcards, comments, and average rating.
 # Allows posting comments via POST.
+# This view shows detailed information about a specific flashcard set, including its flashcards, comments, and rating data.
+
 class FlashCardSetDetailView(LoginRequiredMixin, DetailView):
     """View details of a specific flashcard set."""
     model = FlashCardSet
@@ -307,7 +311,7 @@ class FlashCardSetDetailView(LoginRequiredMixin, DetailView):
 
 
 
-# Allows user to add a new flashcard to a specific set, enforcing daily flashcard creation limit.
+# This view lets the user add a new flashcard to an existing set while enforcing daily flashcard creation limits.
 class FlashCardCreateView(LoginRequiredMixin, CreateView):
     model = FlashCard
     form_class = FlashCardForm
@@ -353,6 +357,8 @@ class FlashCardCreateView(LoginRequiredMixin, CreateView):
 
 # Allows editing an existing flashcard.
 # Only accessible to the set's author.
+# This view allows the set's author to edit an existing flashcard, updating its question, answer, or difficulty level.
+
 class FlashCardUpdateView(LoginRequiredMixin, UpdateView):
     model = FlashCard
     form_class = FlashCardForm
@@ -366,7 +372,7 @@ class FlashCardUpdateView(LoginRequiredMixin, UpdateView):
 
 
 
-# Returns all comments for a given set ID.
+# An API view that returns all comments for a given set, useful for external integrations or frontend AJAX calls.
 class CommentList(APIView):
     
     def get(self, request, pk):
@@ -375,7 +381,7 @@ class CommentList(APIView):
         serializer = CommentSerializer(comments, many=True)
         return Response(serializer.data)
 
-# Creates a new comment on a flashcard set.
+# A web interface view to add a new comment to a flashcard set, linking the comment to the authenticated user.
 class CommentCreateView(LoginRequiredMixin, CreateView):
     model = Comment
     fields = ['comment']  
